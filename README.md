@@ -2,15 +2,8 @@
 
 Angular 17 + TypeScript + Angular Signals を使った EC マーケットプレイスのフロントエンド実装です。
 
-## リポジトリ構成
 
-```
-.
-├── 完成版/          # 参考実装（課題の答え）
-└── スターターキット/ # 課題の出発点（受講者に配布）
-```
-
-## 完成版 ディレクトリ構成
+## 完成版 ディレクトリ構成（設計）
 
 ```
 完成版/
@@ -153,4 +146,4 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
 ## バックエンド連携
 
-バックエンド（Lambda + API Gateway）のセットアップは [ec-backend](../ec-backend) を参照。
+バックエンド（Lambda + API Gateway）のセットアップは [aws-serverless-backend](https://github.com/BrexaSolvia/aws-serverless-backend) を参照。
