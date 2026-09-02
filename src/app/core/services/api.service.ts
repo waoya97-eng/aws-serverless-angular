@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Product, ProductListResponse } from '../models/product.model';
 
@@ -13,19 +13,39 @@ export class ApiService {
 
   getProducts(category?: string): Observable<ProductListResponse> {
     const params = category ? `?category=${encodeURIComponent(category)}` : '';
-    return this.http.get<ProductListResponse>(`${this.base}/products${params}`);
+    return this.http.get<any>(`${this.base}/products${params}`).pipe(
+      map(res => {
+        let data = res;
+        if (typeof res?.body === 'string') {
+          try {
+            data = JSON.parse(res.body);
+          } catch {}
+        }
+        return {
+          products: data?.products ?? data?.items ?? [],
+          lastEvaluatedKey: data?.lastEvaluatedKey,
+        };
+      })
+    );
   }
 
-  // ─── TODO: 以下を実装してください ───────────────────────────────
+  getProduct(sellerId: string, productId: string): Observable<Product> {
+    return this.http.get<any>(`${this.base}/products/${sellerId}/${productId}`).pipe(
+      map(res => {
+        let data = res;
+        if (typeof res?.body === 'string') {
+          try {
+            data = JSON.parse(res.body);
+          } catch {}
+        }
+        return (data?.product ?? data?.item ?? data) as Product;
+      })
+    );
+  }
 
-  // getProduct(sellerId: string, productId: string): Observable<Product>
-  // createProduct(data: Partial<Product>): Observable<Product>
-  // updateProduct(sellerId: string, productId: string, data: Partial<Product>): Observable<Product>
-  // deleteProduct(sellerId: string, productId: string): Observable<void>
-  // getUploadUrl(productId: string, contentType: string): Observable<...>
-  // getCart(): Observable<{ items: CartItem[] }>
-  // addToCart(item: { sellerId: string; productId: string; quantity: number }): Observable<void>
-  // removeFromCart(productId: string): Observable<void>
+  addToCart(item: { sellerId: string; productId: string; quantity: number }): Observable<void> {
+    return this.http.post<void>(`${this.base}/cart`, item);
+  }
   // getOrders(): Observable<{ orders: Order[] }>
   // createOrder(items: CartItem[]): Observable<Order>
   // getSellerOrders(): Observable<{ orders: Order[] }>
