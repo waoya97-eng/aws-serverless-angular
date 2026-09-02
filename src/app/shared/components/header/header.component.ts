@@ -10,12 +10,12 @@ import { AuthService } from '../../../core/services/auth.service';
   template: `
     <header class="header">
       <div class="header-inner">
-        <a routerLink="/products" class="logo">🛒 EC マーケットプレイス</a>
+        <a routerLink="/home" class="logo">🛒 EC マーケットプレイス</a>
 
         <nav class="nav" *ngIf="auth.isAuthenticated()">
           <!-- 消費者メニュー -->
           <ng-container *ngIf="!auth.isSeller()">
-            <a routerLink="/products">商品一覧</a>
+            <a routerLink="/home">商品一覧</a>
             <a routerLink="/cart">カート</a>
             <a routerLink="/orders">注文履歴</a>
           </ng-container>
