@@ -3,6 +3,7 @@ import { Amplify } from 'aws-amplify';
 import {
   signIn,
   signOut,
+  confirmSignIn,
   getCurrentUser,
   fetchAuthSession,
 } from 'aws-amplify/auth';
@@ -45,8 +46,23 @@ export class AuthService {
     }
   }
 
-  async login(email: string, password: string): Promise<void> {
-    await signIn({ username: email, password });
+  async login(email: string, password: string): Promise<{ requiresNewPassword?: boolean }> {
+    const res = await signIn({ username: email, password });
+    if (!res.isSignedIn) {
+      if (res.nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+        return { requiresNewPassword: true };
+      }
+      throw new Error(`ログインが完了していません: ${res.nextStep.signInStep}`);
+    }
+    await this.initialize();
+    return { requiresNewPassword: false };
+  }
+
+  async confirmNewPassword(newPassword: string): Promise<void> {
+    const res = await confirmSignIn({ challengeResponse: newPassword });
+    if (!res.isSignedIn) {
+      throw new Error(`パスワード設定後のログインに失敗しました: ${res.nextStep.signInStep}`);
+    }
     await this.initialize();
   }
 
