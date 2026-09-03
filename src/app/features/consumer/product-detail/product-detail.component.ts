@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIf, NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../core/services/api.service';
+import { CartService } from '../../../core/services/cart.service';
 import { Product } from '../../../core/models/product.model';
 
 @Component({
@@ -67,7 +68,8 @@ import { Product } from '../../../core/models/product.model';
         </div>
 
         <div *ngIf="cartSuccessMessage()" class="cart-success">
-          {{ cartSuccessMessage() }}
+          <p>{{ cartSuccessMessage() }}</p>
+          <a routerLink="/cart" class="btn btn-outline btn-sm" style="margin-top: 8px;">🛒 カートを確認する →</a>
         </div>
       </div>
     </div>
@@ -217,6 +219,7 @@ import { Product } from '../../../core/models/product.model';
 export class ProductDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private api = inject(ApiService);
+  private cartService = inject(CartService);
 
   product = signal<Product | null>(null);
   loading = signal(true);
@@ -265,6 +268,8 @@ export class ProductDetailComponent implements OnInit {
     const prod = this.product();
     if (!prod) return;
 
-    this.cartSuccessMessage.set(`「${prod.name}」(${this.quantity}点) を選択しました`);
+    const qty = Number(this.quantity) || 1;
+    this.cartService.addItem(prod, qty);
+    this.cartSuccessMessage.set(`「${prod.name}」(${qty}点) をカートに追加しました！`);
   }
 }
