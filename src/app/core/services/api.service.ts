@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Product, ProductListResponse } from '../models/product.model';
+import { CartItem } from '../models/cart.model';
+import { Order } from '../models/order.model';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -43,10 +45,42 @@ export class ApiService {
     );
   }
 
+  getCart(): Observable<{ items: CartItem[] }> {
+    return this.http.get<any>(`${this.base}/cart`).pipe(
+      map(res => {
+        let data = res;
+        if (typeof res?.body === 'string') {
+          try {
+            data = JSON.parse(res.body);
+          } catch {}
+        }
+        return { items: data?.items ?? data?.cart ?? [] };
+      })
+    );
+  }
+
   addToCart(item: { sellerId: string; productId: string; quantity: number }): Observable<void> {
     return this.http.post<void>(`${this.base}/cart`, item);
   }
+
+  removeFromCart(productId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/cart/${productId}`);
+  }
+
+  createOrder(items: CartItem[]): Observable<Order> {
+    return this.http.post<any>(`${this.base}/orders`, { items }).pipe(
+      map(res => {
+        let data = res;
+        if (typeof res?.body === 'string') {
+          try {
+            data = JSON.parse(res.body);
+          } catch {}
+        }
+        return (data?.order ?? data) as Order;
+      })
+    );
+  }
+
   // getOrders(): Observable<{ orders: Order[] }>
-  // createOrder(items: CartItem[]): Observable<Order>
   // getSellerOrders(): Observable<{ orders: Order[] }>
 }
