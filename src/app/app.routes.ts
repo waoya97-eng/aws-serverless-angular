@@ -36,9 +36,16 @@ export const routes: Routes = [
       import('./features/consumer/cart/cart.component').then(m => m.CartComponent),
   },
 
+  // 注文履歴画面
+  {
+    path: 'orders',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/consumer/orders/orders.component').then(m => m.OrdersComponent),
+  },
+
   // TODO: 以下のルートを追加してください
   // { path: 'products', canActivate: [authGuard], loadComponent: ... }
-  // { path: 'orders', ... }
   // { path: 'seller/products', canActivate: [authGuard, sellerGuard], ... }
   // { path: 'seller/orders', ... }
 
