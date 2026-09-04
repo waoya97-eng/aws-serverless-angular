@@ -4,6 +4,7 @@ import { NgIf, NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CartService } from '../../../core/services/cart.service';
 import { ApiService } from '../../../core/services/api.service';
+import { OrderService } from '../../../core/services/order.service';
 import { Order } from '../../../core/models/order.model';
 import { CartItem } from '../../../core/models/cart.model';
 
@@ -41,7 +42,8 @@ import { CartItem } from '../../../core/models/cart.model';
         </div>
 
         <div class="complete-actions">
-          <a routerLink="/home" class="btn btn-primary">商品一覧に戻る</a>
+          <a routerLink="/orders" class="btn btn-primary">注文履歴を見る</a>
+          <a routerLink="/home" class="btn btn-outline" style="margin-left: 10px;">商品一覧に戻る</a>
         </div>
       </div>
 
@@ -224,6 +226,7 @@ import { CartItem } from '../../../core/models/cart.model';
 export class CartComponent {
   cart = inject(CartService);
   private api = inject(ApiService);
+  private orderService = inject(OrderService);
 
   isSubmitting = signal(false);
   checkoutError = signal('');
@@ -260,6 +263,7 @@ export class CartComponent {
       next: (order: Order) => {
         this.isSubmitting.set(false);
         this.completedOrder.set(order);
+        this.orderService.recordOrder(order);
         this.cart.clearCart();
       },
       error: (err) => {
@@ -281,6 +285,7 @@ export class CartComponent {
         };
         this.isSubmitting.set(false);
         this.completedOrder.set(simulatedOrder);
+        this.orderService.recordOrder(simulatedOrder);
         this.cart.clearCart();
       },
     });

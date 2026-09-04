@@ -81,6 +81,38 @@ export class ApiService {
     );
   }
 
-  // getOrders(): Observable<{ orders: Order[] }>
-  // getSellerOrders(): Observable<{ orders: Order[] }>
+  getOrders(): Observable<{ orders: Order[] }> {
+    return this.http.get<any>(`${this.base}/orders`).pipe(
+      map(res => {
+        let data = res;
+        if (typeof res?.body === 'string') {
+          try {
+            data = JSON.parse(res.body);
+          } catch {}
+        }
+        const orders: Order[] = Array.isArray(data)
+          ? data
+          : data?.orders ?? data?.items ?? [];
+        return { orders };
+      })
+    );
+  }
+
+  getSellerOrders(): Observable<{ orders: Order[] }> {
+    return this.http.get<any>(`${this.base}/seller/orders`).pipe(
+      map(res => {
+        let data = res;
+        if (typeof res?.body === 'string') {
+          try {
+            data = JSON.parse(res.body);
+          } catch {}
+        }
+        const orders: Order[] = Array.isArray(data)
+          ? data
+          : data?.orders ?? data?.items ?? [];
+        return { orders };
+      })
+    );
+  }
 }
+

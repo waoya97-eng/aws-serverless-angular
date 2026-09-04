@@ -14,3 +14,8 @@ export interface Order {
   status: string;
   createdAt?: string;
 }
+
+export interface OrdersResponse {
+  orders: Order[];
+}
+
