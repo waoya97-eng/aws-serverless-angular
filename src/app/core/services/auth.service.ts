@@ -30,32 +30,61 @@ export class AuthService {
   readonly isAuthenticated = computed(() => this._userId() !== '');
   readonly isSeller = computed(() => this._userGroup() === 'seller');
 
-  async initialize(): Promise<void> {
-    try {
-      const user = await getCurrentUser();
-      const session = await fetchAuthSession();
-      const groups =
-        (session.tokens?.idToken?.payload['cognito:groups'] as string[]) ?? [];
-      this._userId.set(user.userId);
-      this._userGroup.set(groups[0] ?? 'consumer');
-    } catch {
-      this._userId.set('');
-      this._userGroup.set('');
-    } finally {
-      this._isLoading.set(false);
+  private initPromise: Promise<void> | null = null;
+
+  initialize(): Promise<void> {
+    if (this.initPromise) {
+      return this.initPromise;
     }
+
+    this.initPromise = (async () => {
+      try {
+        const user = await getCurrentUser();
+        const session = await fetchAuthSession();
+        const groups =
+          (session.tokens?.idToken?.payload['cognito:groups'] as string[]) ?? [];
+        this._userId.set(user.userId);
+        this._userGroup.set(groups[0] ?? 'consumer');
+      } catch {
+        this._userId.set('');
+        this._userGroup.set('');
+      } finally {
+        this._isLoading.set(false);
+      }
+    })();
+
+    return this.initPromise;
   }
 
   async login(email: string, password: string): Promise<{ requiresNewPassword?: boolean }> {
-    const res = await signIn({ username: email, password });
-    if (!res.isSignedIn) {
-      if (res.nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
-        return { requiresNewPassword: true };
+    try {
+      const res = await signIn({ username: email, password });
+      if (!res.isSignedIn) {
+        if (res.nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+          return { requiresNewPassword: true };
+        }
+        throw new Error(`ログインが完了していません: ${res.nextStep.signInStep}`);
       }
-      throw new Error(`ログインが完了していません: ${res.nextStep.signInStep}`);
+      this.initPromise = null;
+      await this.initialize();
+      return { requiresNewPassword: false };
+    } catch (err: any) {
+      // すでに認証セッションが残っている場合は一度サインアウトして再試行
+      if (err?.name === 'UserAlreadyAuthenticatedException') {
+        await signOut();
+        const res = await signIn({ username: email, password });
+        if (!res.isSignedIn) {
+          if (res.nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+            return { requiresNewPassword: true };
+          }
+          throw new Error(`ログインが完了していません: ${res.nextStep.signInStep}`);
+        }
+        this.initPromise = null;
+        await this.initialize();
+        return { requiresNewPassword: false };
+      }
+      throw err;
     }
-    await this.initialize();
-    return { requiresNewPassword: false };
   }
 
   async confirmNewPassword(newPassword: string): Promise<void> {
@@ -63,6 +92,7 @@ export class AuthService {
     if (!res.isSignedIn) {
       throw new Error(`パスワード設定後のログインに失敗しました: ${res.nextStep.signInStep}`);
     }
+    this.initPromise = null;
     await this.initialize();
   }
 
@@ -70,6 +100,7 @@ export class AuthService {
     await signOut();
     this._userId.set('');
     this._userGroup.set('');
+    this.initPromise = null;
   }
 
   async getToken(): Promise<string> {

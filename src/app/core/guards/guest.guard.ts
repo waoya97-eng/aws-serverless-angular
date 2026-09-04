@@ -2,15 +2,15 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
-/** 未ログインユーザーを /login にリダイレクトするガード */
-export const authGuard: CanActivateFn = async () => {
+/** ログイン済みユーザーを /home にリダイレクトするガード（未ログインユーザー専用ルート用） */
+export const guestGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
   await auth.initialize();
 
   if (auth.isAuthenticated()) {
-    return true;
+    return router.createUrlTree(['/home']);
   }
-  return router.createUrlTree(['/login']);
+  return true;
 };
