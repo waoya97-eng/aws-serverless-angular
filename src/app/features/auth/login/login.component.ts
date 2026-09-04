@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NgIf } from '@angular/common';
@@ -82,7 +82,7 @@ import { AuthService } from '../../../core/services/auth.service';
     .auth-link { margin-top: 20px; text-align: center; font-size: 13px; color: #868e96; }
   `],
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   email = '';
   password = '';
   newPassword = '';
@@ -92,6 +92,13 @@ export class LoginComponent {
 
   private auth = inject(AuthService);
   private router = inject(Router);
+
+  async ngOnInit(): Promise<void> {
+    await this.auth.initialize();
+    if (this.auth.isAuthenticated()) {
+      this.router.navigate(['/home']);
+    }
+  }
 
   async onSubmit(): Promise<void> {
     if (!this.email || !this.password) return;
