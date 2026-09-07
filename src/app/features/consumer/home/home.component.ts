@@ -39,7 +39,7 @@ import { Product } from '../../../core/models/product.model';
         <li><del>カート機能（CartComponent）を実装する</del> ✅ 完了！</li>
         <li><del>注文機能（OrdersComponent）を実装する</del> ✅ 完了！</li>
         <li><del>出品者向け商品管理（SellerProductsComponent）を実装する</del> ✅ 完了！</li>
-        <li>app.routes.ts に各ルートを追加する</li>
+        <li><del>app.routes.ts に各ルートを追加する</del> ✅ 完了！</li>
       </ul>
     </section>
   `,
