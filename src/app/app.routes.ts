@@ -21,11 +21,12 @@ export const routes: Routes = [
       import('./features/consumer/home/home.component').then(m => m.HomeComponent),
   },
 
-  // 商品一覧エイリアス
+  // 商品一覧画面
   {
     path: 'products',
-    redirectTo: '/home',
-    pathMatch: 'full',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/consumer/home/home.component').then(m => m.HomeComponent),
   },
 
   // 商品詳細画面
@@ -63,9 +64,6 @@ export const routes: Routes = [
         m => m.SellerProductsComponent
       ),
   },
-
-  // TODO: 以下のルートを追加してください
-  // { path: 'seller/orders', ... }
 
   { path: '**', redirectTo: '/home' },
 ];
