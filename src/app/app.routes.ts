@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
+import { sellerGuard } from './core/guards/seller.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -18,6 +19,13 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/consumer/home/home.component').then(m => m.HomeComponent),
+  },
+
+  // 商品一覧エイリアス
+  {
+    path: 'products',
+    redirectTo: '/home',
+    pathMatch: 'full',
   },
 
   // 商品詳細画面
@@ -46,9 +54,17 @@ export const routes: Routes = [
       import('./features/consumer/orders/orders.component').then(m => m.OrdersComponent),
   },
 
+  // 出品者向け商品管理画面
+  {
+    path: 'seller/products',
+    canActivate: [authGuard, sellerGuard],
+    loadComponent: () =>
+      import('./features/seller/seller-products/seller-products.component').then(
+        m => m.SellerProductsComponent
+      ),
+  },
+
   // TODO: 以下のルートを追加してください
-  // { path: 'products', canActivate: [authGuard], loadComponent: ... }
-  // { path: 'seller/products', canActivate: [authGuard, sellerGuard], ... }
   // { path: 'seller/orders', ... }
 
   { path: '**', redirectTo: '/home' },
