@@ -49,9 +49,34 @@ export class ApiService {
 
   // ─── 実装済み ────────────────────────────────────────────────────
 
-  getProducts(category?: string): Observable<ProductListResponse> {
-    const params = category ? `?category=${encodeURIComponent(category)}` : '';
-    return this.http.get<any>(`${this.base}/products${params}`).pipe(
+  getProducts(
+    categoryOrOptions?: string | { category?: string; limit?: number; lastKey?: string }
+  ): Observable<ProductListResponse> {
+    let category: string | undefined;
+    let limit: number | undefined;
+    let lastKey: string | undefined;
+
+    if (typeof categoryOrOptions === 'string') {
+      category = categoryOrOptions;
+    } else if (categoryOrOptions) {
+      category = categoryOrOptions.category;
+      limit = categoryOrOptions.limit;
+      lastKey = categoryOrOptions.lastKey;
+    }
+
+    const queryParams = new URLSearchParams();
+    if (category && category !== 'すべて' && category !== 'all') {
+      queryParams.set('category', category);
+    }
+    if (limit) {
+      queryParams.set('limit', String(limit));
+    }
+    if (lastKey) {
+      queryParams.set('lastKey', lastKey);
+    }
+    const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    return this.http.get<any>(`${this.base}/products${queryStr}`).pipe(
       map(res => {
         let data = res;
         if (typeof res?.body === 'string') {
@@ -71,22 +96,27 @@ export class ApiService {
         }
 
         let products = Array.from(mapObj.values());
-        if (category) {
+        if (category && category !== 'すべて' && category !== 'all') {
           products = products.filter(p => p.category === category);
         }
 
+        const rawKey = data?.lastKey ?? data?.lastEvaluatedKey ?? data?.nextKey;
+        const lastEvaluatedKey = rawKey
+          ? (typeof rawKey === 'string' ? rawKey : JSON.stringify(rawKey))
+          : undefined;
+
         return {
           products,
-          lastEvaluatedKey: data?.lastEvaluatedKey,
+          lastEvaluatedKey,
         };
       }),
       catchError(err => {
         console.warn('API getProducts failed, falling back to local products:', err);
         let products = this.loadLocalProducts();
-        if (category) {
+        if (category && category !== 'すべて' && category !== 'all') {
           products = products.filter(p => p.category === category);
         }
-        return of({ products });
+        return of({ products, lastEvaluatedKey: undefined });
       })
     );
   }

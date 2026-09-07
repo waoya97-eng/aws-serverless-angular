@@ -13,12 +13,14 @@ export const routes: Routes = [
       import('./features/auth/login/login.component').then(m => m.LoginComponent),
   },
 
-  // 実装済みスターター画面
+  // 実装済みスターター画面（商品一覧へ転送または商品一覧を表示）
   {
     path: 'home',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/consumer/home/home.component').then(m => m.HomeComponent),
+      import('./features/consumer/product-list/product-list.component').then(
+        m => m.ProductListComponent
+      ),
   },
 
   // 商品一覧画面
@@ -26,7 +28,9 @@ export const routes: Routes = [
     path: 'products',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/consumer/home/home.component').then(m => m.HomeComponent),
+      import('./features/consumer/product-list/product-list.component').then(
+        m => m.ProductListComponent
+      ),
   },
 
   // 商品詳細画面
