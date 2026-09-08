@@ -11,14 +11,14 @@ import { CartService } from '../../../core/services/cart.service';
   template: `
     <header class="header">
       <div class="header-inner">
-        <a routerLink="/home" class="logo">🛒 EC マーケットプレイス</a>
+        <a routerLink="/home" class="logo">🛍 EC Market</a>
 
         <nav class="nav" *ngIf="auth.isAuthenticated()">
           <!-- 消費者メニュー -->
           <ng-container *ngIf="!auth.isSeller()">
             <a routerLink="/home">商品一覧</a>
             <a routerLink="/cart" class="cart-link">
-              カート
+              🛒 カート
               <span *ngIf="cart.totalCount() > 0" class="cart-badge">{{ cart.totalCount() }}</span>
             </a>
             <a routerLink="/orders">注文履歴</a>
