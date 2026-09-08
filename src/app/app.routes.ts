@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { sellerGuard } from './core/guards/seller.guard';
+import { consumerGuard } from './core/guards/consumer.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -43,10 +44,10 @@ export const routes: Routes = [
       ),
   },
 
-  // カート画面
+  // カート画面（Consumer のみ）
   {
     path: 'cart',
-    canActivate: [authGuard],
+    canActivate: [authGuard, consumerGuard],
     loadComponent: () =>
       import('./features/consumer/cart/cart.component').then(m => m.CartComponent),
   },

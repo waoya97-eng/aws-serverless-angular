@@ -43,6 +43,14 @@ export class CartService {
   }
 
   /**
+   * カートの全アイテムを設定（API取得結果の反映など）
+   */
+  setItems(items: CartItem[]): void {
+    this._items.set(items);
+    this.saveToStorage(items);
+  }
+
+  /**
    * カートに商品を追加
    */
   addItem(product: Product, quantity = 1): void {

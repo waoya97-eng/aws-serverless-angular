@@ -1,23 +1,20 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIf, NgFor } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { CartService } from '../../../core/services/cart.service';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { OrderService } from '../../../core/services/order.service';
 import { Order } from '../../../core/models/order.model';
 import { CartItem } from '../../../core/models/cart.model';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-cart',
   standalone: true,
-  imports: [NgIf, NgFor, RouterLink, FormsModule],
+  imports: [NgIf, NgFor, RouterLink],
   template: `
     <div class="cart-page">
-      <div class="breadcrumb">
-        <a routerLink="/home">← 商品一覧に戻る</a>
-      </div>
-
       <!-- 注文完了画面 -->
       <div *ngIf="completedOrder() as order" class="card order-complete-card">
         <div class="complete-header">
@@ -43,194 +40,432 @@ import { CartItem } from '../../../core/models/cart.model';
 
         <div class="complete-actions">
           <a routerLink="/orders" class="btn btn-primary">注文履歴を見る</a>
-          <a routerLink="/home" class="btn btn-outline" style="margin-left: 10px;">商品一覧に戻る</a>
+          <a routerLink="/products" class="btn btn-outline" style="margin-left: 10px;">商品一覧に戻る</a>
         </div>
       </div>
 
-      <!-- カート本体（未注文時） -->
+      <!-- カート本体 -->
       <div *ngIf="!completedOrder()">
-        <h1 class="page-title">ショッピングカート</h1>
+        <!-- タイトル: 🛒 カート（3 点） -->
+        <h1 class="cart-title">
+          🛒 カート（{{ cart.totalCount() }} 点）
+        </h1>
 
-        <!-- カートが空の場合 -->
-        <div *ngIf="cart.isEmpty()" class="card empty-state">
+        <!-- 空カートメッセージ (アイテム 0 件のとき表示) -->
+        <div *ngIf="cart.isEmpty() && !loading()" class="card empty-state">
           <div class="empty-icon">🛒</div>
-          <h2>カートは空です</h2>
-          <p class="empty-desc">気になる商品をカートに追加してみましょう。</p>
-          <a routerLink="/home" class="btn btn-primary" style="margin-top: 16px;">商品を探す</a>
+          <h2 class="empty-title">カートは空です</h2>
+          <p class="empty-desc">現在、カートに商品が入っていません。</p>
+          <a routerLink="/products" class="btn btn-primary" style="margin-top: 16px;">商品を探す</a>
         </div>
 
-        <!-- カートに商品がある場合 -->
-        <div *ngIf="!cart.isEmpty()" class="cart-container">
-          <!-- カートアイテム一覧 -->
-          <div class="cart-items-section card">
-            <div class="cart-header-row">
-              <span class="col-product">商品情報</span>
-              <span class="col-price">単価</span>
-              <span class="col-quantity">数量</span>
-              <span class="col-subtotal">小計</span>
-              <span class="col-action">操作</span>
-            </div>
+        <!-- 画面表示時ローディング -->
+        <div *ngIf="loading()" class="loading">カート情報を読み込み中...</div>
 
+        <!-- カートアイテムリスト -->
+        <div *ngIf="!cart.isEmpty()" class="cart-content">
+          <div class="cart-list-card">
             <div *ngFor="let item of cart.items()" class="cart-item-row">
-              <!-- 商品情報 -->
-              <div class="col-product product-info">
-                <div class="item-thumbnail">
-                  <img *ngIf="item.imageUrl; else noImg" [src]="item.imageUrl" [alt]="item.name" />
-                  <ng-template #noImg>
-                    <div class="no-image-box">No Img</div>
-                  </ng-template>
+              <!-- 商品画像 📷 (CloudFront URL) -->
+              <div class="item-thumb">
+                <img
+                  *ngIf="getItemImageUrl(item.imageUrl); else placeholderTpl"
+                  [src]="getItemImageUrl(item.imageUrl)"
+                  [alt]="item.name"
+                  loading="lazy"
+                />
+                <ng-template #placeholderTpl>
+                  <div class="thumb-placeholder">📷</div>
+                </ng-template>
+              </div>
+
+              <!-- 商品情報 (名前・価格・数量) -->
+              <div class="item-details">
+                <a [routerLink]="['/products', item.sellerId, item.productId]" class="item-name">
+                  {{ item.name }}
+                </a>
+                <div class="item-price">
+                  ¥ {{ item.price.toLocaleString() }}
                 </div>
-                <div class="item-name-wrap">
-                  <a [routerLink]="['/products', item.sellerId, item.productId]" class="item-title">
-                    {{ item.name }}
-                  </a>
-                  <span class="seller-label">出品者ID: {{ item.sellerId }}</span>
+                <div class="item-qty-row">
+                  <span class="item-qty-text">× {{ item.quantity }}</span>
+                  <div class="qty-pill">
+                    <button
+                      type="button"
+                      class="qty-mini-btn"
+                      [disabled]="item.quantity <= 1"
+                      (click)="onDecreaseQuantity(item)"
+                      aria-label="数量を減らす"
+                    >−</button>
+                    <button
+                      type="button"
+                      class="qty-mini-btn"
+                      (click)="onIncreaseQuantity(item)"
+                      aria-label="数量を増やす"
+                    >＋</button>
+                  </div>
                 </div>
               </div>
 
-              <!-- 単価 -->
-              <div class="col-price price-cell">
-                ¥{{ item.price.toLocaleString() }}
-              </div>
-
-              <!-- 数量変更 -->
-              <div class="col-quantity qty-cell">
-                <div class="quantity-controller">
-                  <button
-                    type="button"
-                    class="qty-btn"
-                    (click)="onDecreaseQuantity(item)"
-                    [disabled]="item.quantity <= 1"
-                    title="数量を減らす"
-                  >-</button>
-                  <span class="qty-value">{{ item.quantity }}</span>
-                  <button
-                    type="button"
-                    class="qty-btn"
-                    (click)="onIncreaseQuantity(item)"
-                    title="数量を増やす"
-                  >+</button>
-                </div>
-              </div>
-
-              <!-- 小計 -->
-              <div class="col-subtotal subtotal-cell">
-                ¥{{ (item.price * item.quantity).toLocaleString() }}
-              </div>
-
-              <!-- 削除ボタン -->
-              <div class="col-action action-cell">
+              <!-- 削除ボタン 🗑 (確認なしで即削除: DELETE /cart/:productId) -->
+              <div class="item-actions">
                 <button
                   type="button"
                   class="btn-delete"
                   (click)="onRemoveItem(item.productId)"
-                  title="商品を削除"
+                  aria-label="削除"
+                  title="削除"
                 >
-                  削除
+                  🗑
                 </button>
               </div>
             </div>
-
-            <div class="cart-actions-bottom">
-              <button
-                type="button"
-                class="btn-clear-cart"
-                (click)="onClearCart()"
-              >
-                カートを空にする
-              </button>
-            </div>
           </div>
 
-          <!-- 注文サマリー（右サイド） -->
-          <div class="cart-summary-section card">
-            <h2 class="summary-title">注文内容</h2>
-
-            <div class="summary-row">
-              <span>商品合計 ({{ cart.totalCount() }}点)</span>
-              <span>¥{{ cart.totalAmount().toLocaleString() }}</span>
-            </div>
-
-            <div class="summary-row">
-              <span>配送料</span>
-              <span class="free-shipping">無料</span>
-            </div>
-
-            <hr class="summary-divider" />
-
-            <div class="summary-total-row">
-              <span>合計 (税込)</span>
-              <span class="grand-total">¥{{ cart.totalAmount().toLocaleString() }}</span>
+          <!-- フッター / サマリーエリア -->
+          <div class="cart-footer-card">
+            <div class="subtotal-row">
+              <span class="subtotal-label">小計:</span>
+              <span class="subtotal-price">¥ {{ cart.totalAmount().toLocaleString() }}</span>
             </div>
 
             <div *ngIf="checkoutError()" class="error-message checkout-error">
               {{ checkoutError() }}
             </div>
 
+            <!-- 注文確認へ進むボタン (カートが空の場合は非活性) -->
             <button
               type="button"
               class="btn btn-primary btn-checkout"
-              [disabled]="isSubmitting()"
+              [disabled]="cart.isEmpty() || isSubmitting()"
               (click)="onCheckout()"
             >
-              <span *ngIf="!isSubmitting()">注文を確定する</span>
+              <span *ngIf="!isSubmitting()">注文確認へ進む →</span>
               <span *ngIf="isSubmitting()">注文処理中...</span>
             </button>
-
-            <a routerLink="/home" class="continue-shopping">← お買い物を続ける</a>
           </div>
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .cart-page { max-width: 1100px; margin: 0 auto; }
-    .breadcrumb { margin-bottom: 20px; font-size: 14px; }
-    .breadcrumb a { color: #555; }
-    .cart-container { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
-    @media(max-width:768px){.cart-container{grid-template-columns:1fr}.cart-header-row{display:none}}
-    .cart-header-row,.cart-item-row { display: grid; grid-template-columns: 3fr 1fr 90px 1fr 50px; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 14px; }
-    .cart-header-row { font-size: 12px; font-weight: 700; color: #666; border-bottom: 2px solid #ddd; }
-    .product-info { display: flex; align-items: center; gap: 10px; }
-    .item-thumbnail { width: 50px; height: 50px; border-radius: 4px; overflow: hidden; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #999; flex-shrink: 0; }
-    .item-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-    .item-title { font-weight: 600; color: #222; }
-    .seller-label { font-size: 11px; color: #888; display: block; }
-    .quantity-controller { display: inline-flex; border: 1px solid #ccc; border-radius: 4px; }
-    .qty-btn { width: 26px; height: 26px; background: #f8f8f8; border: none; font-size: 14px; cursor: pointer; }
-    .qty-btn:disabled { opacity: 0.3; }
-    .qty-value { width: 28px; text-align: center; line-height: 26px; font-size: 13px; }
-    .subtotal-cell { font-weight: 700; color: #4263eb; }
-    .btn-delete { background: none; border: none; color: #e03131; cursor: pointer; font-size: 12px; }
-    .cart-actions-bottom { display: flex; justify-content: flex-end; padding-top: 12px; }
-    .btn-clear-cart { background: none; border: 1px solid #ddd; color: #666; font-size: 12px; padding: 4px 10px; border-radius: 4px; }
-    .cart-summary-section { position: sticky; top: 70px; display: flex; flex-direction: column; gap: 10px; }
-    .summary-title { font-size: 16px; font-weight: 700; padding-bottom: 6px; border-bottom: 1px solid #eee; }
-    .summary-row, .summary-total-row { display: flex; justify-content: space-between; font-size: 14px; }
-    .free-shipping { color: #2b8a3e; font-weight: 600; }
-    .summary-divider { border: none; border-top: 1px solid #eee; margin: 4px 0; }
-    .summary-total-row { font-weight: 700; }
-    .grand-total { font-size: 20px; color: #4263eb; }
-    .btn-checkout { width: 100%; padding: 12px; font-size: 15px; margin-top: 6px; }
-    .continue-shopping { text-align: center; font-size: 12px; color: #666; }
-    .checkout-error { background: #fff5f5; border: 1px solid #ffc9c9; padding: 8px; border-radius: 4px; font-size: 12px; color: #e03131; }
-    .order-complete-card { max-width: 500px; margin: 24px auto; text-align: center; }
-    .success-icon { font-size: 44px; margin-bottom: 6px; }
-    .order-id { font-size: 13px; color: #666; margin: 6px 0 16px; }
-    .order-summary-details { background: #f9f9f9; border-radius: 6px; padding: 14px; text-align: left; margin-bottom: 16px; font-size: 13px; }
-    .order-item-row, .order-total-row { display: flex; justify-content: space-between; padding: 4px 0; }
-    .order-total-row { font-weight: 700; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 6px; }
-    .total-price { color: #4263eb; font-size: 15px; }
+    .cart-page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding-bottom: 60px;
+    }
+
+    .cart-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #212529;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cart-list-card {
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #eaeaea;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .cart-item-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid #f1f3f5;
+      transition: background-color 0.15s;
+    }
+
+    .cart-item-row:last-child {
+      border-bottom: none;
+    }
+
+    .item-thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .item-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .thumb-placeholder {
+      font-size: 26px;
+      color: #adb5bd;
+      user-select: none;
+    }
+
+    .item-details {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #212529;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-name:hover {
+      color: #4263eb;
+      text-decoration: underline;
+    }
+
+    .item-price {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1f2328;
+    }
+
+    .item-qty-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .item-qty-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .qty-pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-left: 6px;
+    }
+
+    .qty-mini-btn {
+      width: 24px;
+      height: 24px;
+      background: #f8f9fa;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #495057;
+      transition: background-color 0.15s;
+    }
+
+    .qty-mini-btn:hover:not(:disabled) {
+      background: #e9ecef;
+    }
+
+    .qty-mini-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 6px;
+      transition: transform 0.15s, background-color 0.15s;
+      color: #868e96;
+    }
+
+    .btn-delete:hover {
+      background-color: #fff5f5;
+      transform: scale(1.1);
+    }
+
+    .cart-footer-card {
+      margin-top: 20px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #eaeaea;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .subtotal-row {
+      display: flex;
+      justify-content: flex-end;
+      align-items: baseline;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #212529;
+    }
+
+    .subtotal-price {
+      font-size: 24px;
+      color: #4263eb;
+    }
+
+    .btn-checkout {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 6px;
+    }
+
+    .btn-checkout:disabled {
+      background: #e9ecef;
+      color: #adb5bd;
+      border-color: #e9ecef;
+      cursor: not-allowed;
+      opacity: 1;
+    }
+
+    .checkout-error {
+      background: #fff5f5;
+      border: 1px solid #ffc9c9;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #e03131;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .empty-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #212529;
+      margin-bottom: 8px;
+    }
+
+    .empty-desc {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .order-complete-card {
+      max-width: 500px;
+      margin: 24px auto;
+      text-align: center;
+    }
+
+    .success-icon {
+      font-size: 44px;
+      margin-bottom: 6px;
+    }
+
+    .order-id {
+      font-size: 13px;
+      color: #666;
+      margin: 6px 0 16px;
+    }
+
+    .order-summary-details {
+      background: #f9f9f9;
+      border-radius: 6px;
+      padding: 14px;
+      text-align: left;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .order-item-row, .order-total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+
+    .order-total-row {
+      font-weight: 700;
+      border-top: 1px solid #ddd;
+      padding-top: 8px;
+      margin-top: 6px;
+    }
+
+    .total-price {
+      color: #4263eb;
+      font-size: 15px;
+    }
+
+    .complete-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
   `],
 })
-export class CartComponent {
+export class CartComponent implements OnInit {
   cart = inject(CartService);
   private api = inject(ApiService);
+  auth = inject(AuthService);
   private orderService = inject(OrderService);
 
+  loading = signal(false);
   isSubmitting = signal(false);
   checkoutError = signal('');
   completedOrder = signal<Order | null>(null);
+
+  ngOnInit(): void {
+    // 画面表示時: GET /cart
+    this.loading.set(true);
+    this.api.getCart().subscribe({
+      next: res => {
+        if (res.items && Array.isArray(res.items) && res.items.length > 0) {
+          this.cart.setItems(res.items);
+        }
+        this.loading.set(false);
+      },
+      error: err => {
+        console.warn('GET /cart warning (local cart maintained):', err);
+        this.loading.set(false);
+      },
+    });
+  }
+
+  getItemImageUrl(rawUrl?: string): string {
+    if (!rawUrl) return '';
+    const trimmed = rawUrl.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+    const cloudfront = (environment.cloudfrontUrl || '').replace(/^https?:\/?\/?/, 'https://').replace(/\/+$/, '');
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${cloudfront}${cleanPath}`;
+  }
 
   onIncreaseQuantity(item: CartItem): void {
     this.cart.updateQuantity(item.productId, item.quantity + 1);
@@ -242,14 +477,12 @@ export class CartComponent {
     }
   }
 
+  /**
+   * 削除ボタン 🗑 押下時
+   * 仕様: 確認なしで即削除, DELETE /cart/:productId
+   */
   onRemoveItem(productId: string): void {
     this.cart.removeItem(productId);
-  }
-
-  onClearCart(): void {
-    if (confirm('カート内の商品をすべて削除しますか？')) {
-      this.cart.clearCart();
-    }
   }
 
   onCheckout(): void {
@@ -268,7 +501,6 @@ export class CartComponent {
       },
       error: (err) => {
         console.warn('API createOrder failed, falling back to simulated order:', err);
-        // バックエンドが未デプロイ/エラー時のフォールバック処理
         const simulatedOrder: Order = {
           buyerId: 'guest-buyer',
           orderId: 'ORD-' + Date.now().toString().slice(-6),
@@ -291,3 +523,4 @@ export class CartComponent {
     });
   }
 }
+
