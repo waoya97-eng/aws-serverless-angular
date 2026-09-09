@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { NgIf, NgFor } from '@angular/common';
 import { CartService } from '../../../core/services/cart.service';
 import { ApiService } from '../../../core/services/api.service';
@@ -137,11 +137,10 @@ import { environment } from '../../../../environments/environment';
             <button
               type="button"
               class="btn btn-primary btn-checkout"
-              [disabled]="cart.isEmpty() || isSubmitting()"
+              [disabled]="cart.isEmpty()"
               (click)="onCheckout()"
             >
-              <span *ngIf="!isSubmitting()">注文確認へ進む →</span>
-              <span *ngIf="isSubmitting()">注文処理中...</span>
+              注文確認へ進む →
             </button>
           </div>
         </div>
@@ -433,6 +432,7 @@ export class CartComponent implements OnInit {
   private api = inject(ApiService);
   auth = inject(AuthService);
   private orderService = inject(OrderService);
+  private router = inject(Router);
 
   loading = signal(false);
   isSubmitting = signal(false);
@@ -486,41 +486,8 @@ export class CartComponent implements OnInit {
   }
 
   onCheckout(): void {
-    const items = this.cart.items();
-    if (items.length === 0) return;
-
-    this.isSubmitting.set(true);
-    this.checkoutError.set('');
-
-    this.api.createOrder(items).subscribe({
-      next: (order: Order) => {
-        this.isSubmitting.set(false);
-        this.completedOrder.set(order);
-        this.orderService.recordOrder(order);
-        this.cart.clearCart();
-      },
-      error: (err) => {
-        console.warn('API createOrder failed, falling back to simulated order:', err);
-        const simulatedOrder: Order = {
-          buyerId: 'guest-buyer',
-          orderId: 'ORD-' + Date.now().toString().slice(-6),
-          items: items.map(i => ({
-            sellerId: i.sellerId,
-            productId: i.productId,
-            name: i.name,
-            price: i.price,
-            quantity: i.quantity,
-          })),
-          totalAmount: this.cart.totalAmount(),
-          status: 'CONFIRMED',
-          createdAt: new Date().toISOString(),
-        };
-        this.isSubmitting.set(false);
-        this.completedOrder.set(simulatedOrder);
-        this.orderService.recordOrder(simulatedOrder);
-        this.cart.clearCart();
-      },
-    });
+    if (this.cart.isEmpty()) return;
+    this.router.navigate(['/checkout']);
   }
 }
 
