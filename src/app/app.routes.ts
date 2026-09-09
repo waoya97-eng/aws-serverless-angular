@@ -3,6 +3,8 @@ import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { sellerGuard } from './core/guards/seller.guard';
 import { consumerGuard } from './core/guards/consumer.guard';
+import { checkoutGuard } from './core/guards/checkout.guard';
+import { orderCompleteGuard } from './core/guards/order-complete.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -52,22 +54,29 @@ export const routes: Routes = [
       import('./features/consumer/cart/cart.component').then(m => m.CartComponent),
   },
 
-  // 注文確認画面（Consumer のみ）
+  // 注文確認画面（Consumer のみ、空カートまたは注文完了後は /products へリダイレクト）
   {
     path: 'checkout',
-    canActivate: [authGuard, consumerGuard],
+    canActivate: [authGuard, consumerGuard, checkoutGuard],
     loadComponent: () =>
       import('./features/consumer/checkout/checkout.component').then(m => m.CheckoutComponent),
   },
 
-  // 注文完了画面（Consumer のみ）
+  // 注文完了画面（Consumer のみ、直接アクセスは /products へリダイレクト）
   {
-    path: 'order-complete',
-    canActivate: [authGuard, consumerGuard],
+    path: 'checkout/complete',
+    canActivate: [authGuard, consumerGuard, orderCompleteGuard],
     loadComponent: () =>
       import('./features/consumer/order-complete/order-complete.component').then(
         m => m.OrderCompleteComponent
       ),
+  },
+
+  // 互換用リダイレクト
+  {
+    path: 'order-complete',
+    redirectTo: '/checkout/complete',
+    pathMatch: 'full',
   },
 
   // 注文履歴画面
@@ -78,7 +87,7 @@ export const routes: Routes = [
       import('./features/consumer/orders/orders.component').then(m => m.OrdersComponent),
   },
 
-  // 出品者向け商品管理画面
+  // 出品者向け商品管理画面（S09）
   {
     path: 'seller/products',
     canActivate: [authGuard, sellerGuard],
