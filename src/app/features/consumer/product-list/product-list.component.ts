@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { CartService } from '../../../core/services/cart.service';
+import { OrderService } from '../../../core/services/order.service';
 import { Product } from '../../../core/models/product.model';
 import { ProductCardComponent } from '../../../shared/components/product-card/product-card.component';
 
@@ -318,6 +319,7 @@ export class ProductListComponent implements OnInit {
   api = inject(ApiService);
   auth = inject(AuthService);
   cart = inject(CartService);
+  private orderService = inject(OrderService);
 
   products = signal<Product[]>([]);
   loading = signal<boolean>(true);
@@ -349,6 +351,7 @@ export class ProductListComponent implements OnInit {
   private toastTimer: any;
 
   ngOnInit(): void {
+    this.orderService.resetJustCompleted();
     this.fetchProducts();
   }
 

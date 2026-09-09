@@ -12,6 +12,31 @@ export class OrderService {
   readonly orders = this._orders.asReadonly();
   readonly loading = signal<boolean>(false);
 
+  // S06 注文完了画面連携用の一時状態
+  readonly lastCompletedOrderId = signal<string | null>(null);
+  readonly justCompletedOrder = signal<boolean>(false);
+
+  setCompletedOrder(orderId: string): void {
+    this.lastCompletedOrderId.set(orderId);
+    this.justCompletedOrder.set(true);
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('ec_just_completed_order', 'true');
+    }
+  }
+
+  consumeCompletedOrderId(): string | null {
+    const id = this.lastCompletedOrderId();
+    this.lastCompletedOrderId.set(null);
+    return id;
+  }
+
+  resetJustCompleted(): void {
+    this.justCompletedOrder.set(false);
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('ec_just_completed_order');
+    }
+  }
+
   private loadFromStorage(): Order[] {
     if (typeof window === 'undefined' || !window.localStorage) {
       return [];
