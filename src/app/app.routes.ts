@@ -52,6 +52,24 @@ export const routes: Routes = [
       import('./features/consumer/cart/cart.component').then(m => m.CartComponent),
   },
 
+  // 注文確認画面（Consumer のみ）
+  {
+    path: 'checkout',
+    canActivate: [authGuard, consumerGuard],
+    loadComponent: () =>
+      import('./features/consumer/checkout/checkout.component').then(m => m.CheckoutComponent),
+  },
+
+  // 注文完了画面（Consumer のみ）
+  {
+    path: 'order-complete',
+    canActivate: [authGuard, consumerGuard],
+    loadComponent: () =>
+      import('./features/consumer/order-complete/order-complete.component').then(
+        m => m.OrderCompleteComponent
+      ),
+  },
+
   // 注文履歴画面
   {
     path: 'orders',
