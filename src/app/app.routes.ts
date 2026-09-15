@@ -79,10 +79,10 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
 
-  // 注文履歴画面
+  // 注文履歴画面（Consumer のみ）
   {
     path: 'orders',
-    canActivate: [authGuard],
+    canActivate: [authGuard, consumerGuard],
     loadComponent: () =>
       import('./features/consumer/orders/orders.component').then(m => m.OrdersComponent),
   },
