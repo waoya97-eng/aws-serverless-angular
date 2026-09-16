@@ -107,5 +107,15 @@ export const routes: Routes = [
       ),
   },
 
+  // 出品者向け受注一覧画面（S10）
+  {
+    path: 'seller/orders',
+    canActivate: [authGuard, sellerGuard],
+    loadComponent: () =>
+      import('./features/seller/seller-orders/seller-orders.component').then(
+        m => m.SellerOrdersComponent
+      ),
+  },
+
   { path: '**', redirectTo: '/home' },
 ];

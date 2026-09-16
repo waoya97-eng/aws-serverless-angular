@@ -8,6 +8,7 @@ export interface OrderItem {
 
 export interface Order {
   buyerId: string;
+  buyerName?: string;
   orderId: string;
   items: OrderItem[];
   totalAmount: number;
