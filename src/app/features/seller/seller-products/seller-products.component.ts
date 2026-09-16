@@ -21,9 +21,9 @@ import { Product } from '../../../core/models/product.model';
           <h1 class="page-title" style="margin-bottom:4px;">出品商品管理</h1>
           <p class="subtitle">出品商品の登録、情報編集、在庫管理、削除を行えます。</p>
         </div>
-        <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+        <a routerLink="/seller/products/new" class="btn btn-primary">
           ＋ 新規商品を登録
-        </button>
+        </a>
       </div>
 
       <!-- メッセージバナー -->
@@ -92,15 +92,14 @@ import { Product } from '../../../core/models/product.model';
         <h2>商品が見つかりません</h2>
         <p *ngIf="products().length === 0">まだ商品を出品していません。「新規商品を登録」ボタンから商品を出品してみましょう。</p>
         <p *ngIf="products().length > 0">検索条件に一致する商品がありませんでした。</p>
-        <button
+        <a
           *ngIf="products().length === 0"
-          type="button"
+          routerLink="/seller/products/new"
           class="btn btn-primary"
           style="margin-top: 16px;"
-          (click)="openCreateModal()"
         >
           ＋ 新規商品を登録する
-        </button>
+        </a>
         <button
           *ngIf="products().length > 0"
           type="button"

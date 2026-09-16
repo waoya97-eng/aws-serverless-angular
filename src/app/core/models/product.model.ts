@@ -7,6 +7,7 @@ export interface Product {
   category: string;
   stock: number;
   imageUrl?: string;
+  imageKey?: string;
   createdAt?: string;
 }
 
@@ -18,4 +19,6 @@ export interface ProductListResponse {
 export interface UploadUrlResponse {
   uploadUrl: string;
   imageUrl: string;
+  imageKey?: string;
+  key?: string;
 }
