@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { NgIf, NgFor, NgClass, DatePipe } from '@angular/common';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { NgIf, NgFor } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Product } from '../../../core/models/product.model';
@@ -9,20 +10,17 @@ import { Product } from '../../../core/models/product.model';
 @Component({
   selector: 'app-seller-products',
   standalone: true,
-  imports: [NgIf, NgFor, NgClass, RouterLink, FormsModule, DatePipe],
+  imports: [NgIf, NgFor, RouterLink, FormsModule],
   template: `
-    <div class="seller-page">
-      <div class="breadcrumb">
-        <a routerLink="/home">← ホームに戻る</a>
-      </div>
-
+    <div class="seller-products-page">
+      <!-- 画面ヘッダー: 📦 商品管理 & ＋ 新しい商品を登録 -->
       <div class="page-header">
-        <div>
-          <h1 class="page-title" style="margin-bottom:4px;">出品商品管理</h1>
-          <p class="subtitle">出品商品の登録、情報編集、在庫管理、削除を行えます。</p>
-        </div>
-        <a routerLink="/seller/products/new" class="btn btn-primary">
-          ＋ 新規商品を登録
+        <h1 class="page-title">
+          <span class="title-icon">📦</span>
+          <span>商品管理</span>
+        </h1>
+        <a routerLink="/seller/products/new" class="btn btn-primary btn-new-product">
+          ＋ 新しい商品を登録
         </a>
       </div>
 
@@ -36,148 +34,82 @@ import { Product } from '../../../core/models/product.model';
         <button type="button" class="close-btn" (click)="errorMessage.set('')">✕</button>
       </div>
 
-      <!-- KPI サマリーカード -->
-      <div class="stats-grid">
-        <div class="card stat-card">
-          <span class="stat-label">総出品数</span>
-          <span class="stat-value">{{ totalCount() }} 点</span>
-        </div>
-        <div class="card stat-card">
-          <span class="stat-label">在庫あり</span>
-          <span class="stat-value in-stock">{{ inStockCount() }} 点</span>
-        </div>
-        <div class="card stat-card">
-          <span class="stat-label">在庫切れ</span>
-          <span class="stat-value out-stock">{{ outOfStockCount() }} 点</span>
-        </div>
+      <!-- ローディング表示 -->
+      <div *ngIf="loading()" class="loading-state">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>商品データを読み込み中...</span>
       </div>
 
-      <!-- フィルター・検索バー -->
-      <div class="card filter-card">
-        <div class="filter-controls">
-          <div class="search-box">
-            <input
-              type="text"
-              placeholder="🔍 商品名・説明で検索..."
-              [ngModel]="searchQuery()"
-              (ngModelChange)="searchQuery.set($event)"
-            />
-          </div>
-          <div class="select-group">
-            <label>カテゴリー:</label>
-            <select [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)">
-              <option value="all">すべて</option>
-              <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
-            </select>
-          </div>
-          <div class="select-group">
-            <label>在庫状態:</label>
-            <select [ngModel]="selectedStockStatus()" (ngModelChange)="selectedStockStatus.set($event)">
-              <option value="all">すべて</option>
-              <option value="inStock">在庫あり</option>
-              <option value="outOfStock">在庫切れ</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- ローディング -->
-      <div *ngIf="loading()" class="loading">
-        商品データを読み込み中...
-      </div>
-
-      <!-- 商品なし (空状態) -->
-      <div *ngIf="!loading() && filteredProducts().length === 0" class="card empty-state">
+      <!-- 商品が空の場合 -->
+      <div *ngIf="!loading() && products().length === 0" class="card empty-state">
         <div class="empty-icon">📦</div>
-        <h2>商品が見つかりません</h2>
-        <p *ngIf="products().length === 0">まだ商品を出品していません。「新規商品を登録」ボタンから商品を出品してみましょう。</p>
-        <p *ngIf="products().length > 0">検索条件に一致する商品がありませんでした。</p>
-        <a
-          *ngIf="products().length === 0"
-          routerLink="/seller/products/new"
-          class="btn btn-primary"
-          style="margin-top: 16px;"
-        >
-          ＋ 新規商品を登録する
+        <h2 class="empty-title">出品中の商品はありません</h2>
+        <p class="empty-desc">まだ商品を出品していません。「新しい商品を登録」から商品を出品してみましょう。</p>
+        <a routerLink="/seller/products/new" class="btn btn-primary" style="margin-top: 16px;">
+          ＋ 新しい商品を登録
         </a>
-        <button
-          *ngIf="products().length > 0"
-          type="button"
-          class="btn btn-outline"
-          style="margin-top: 16px;"
-          (click)="resetFilters()"
-        >
-          フィルターを解除
-        </button>
       </div>
 
-      <!-- 商品テーブル -->
-      <div *ngIf="!loading() && filteredProducts().length > 0" class="card table-card">
+      <!-- 商品テーブル: 画像 | 商品名 | カテゴリ | 価格 | 在庫 | 操作 -->
+      <div *ngIf="!loading() && products().length > 0" class="card table-card">
         <div class="table-responsive">
           <table class="product-table">
             <thead>
               <tr>
-                <th style="width:60px;">画像</th>
-                <th>商品名 / ID</th>
-                <th>カテゴリー</th>
-                <th>価格</th>
-                <th>在庫</th>
-                <th>登録日</th>
-                <th>操作</th>
+                <th class="th-img">画像</th>
+                <th class="th-name">商品名</th>
+                <th class="th-cat">カテゴリ</th>
+                <th class="th-price">価格</th>
+                <th class="th-stock">在庫</th>
+                <th class="th-actions">操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let prod of filteredProducts()">
-                <td>
-                  <div class="img-thumb">
-                    <img *ngIf="prod.imageUrl; else noImg" [src]="prod.imageUrl" [alt]="prod.name" />
-                    <ng-template #noImg>No Img</ng-template>
+              <tr *ngFor="let prod of products()">
+                <!-- 画像 -->
+                <td class="td-img">
+                  <div class="img-wrapper">
+                    <img *ngIf="prod.imageUrl" [src]="prod.imageUrl" [alt]="prod.name" class="img-thumb" />
+                    <span *ngIf="!prod.imageUrl" class="no-img-icon">📷</span>
                   </div>
                 </td>
-                <td>
-                  <div class="name-text">{{ prod.name }}</div>
-                  <div class="id-sub">ID: {{ prod.productId }}</div>
+
+                <!-- 商品名 -->
+                <td class="td-name">
+                  <span class="product-name">{{ prod.name }}</span>
                 </td>
-                <td>
-                  <span class="category-tag">{{ prod.category }}</span>
+
+                <!-- カテゴリ -->
+                <td class="td-cat">
+                  <span class="category-text">{{ prod.category }}</span>
                 </td>
+
+                <!-- 価格 -->
                 <td class="td-price">
                   ¥{{ prod.price.toLocaleString() }}
                 </td>
-                <td>
-                  <span
-                    class="stock-tag"
-                    [class.in]="prod.stock > 0"
-                    [class.out]="prod.stock === 0"
-                  >
-                    {{ prod.stock > 0 ? '在庫 ' + prod.stock : '在庫切れ' }}
+
+                <!-- 在庫 -->
+                <td class="td-stock">
+                  <span [class.out-of-stock]="prod.stock === 0">
+                    {{ prod.stock }}
                   </span>
                 </td>
-                <td style="color:#888; font-size:12px;">
-                  {{ (prod.createdAt | date:'yyyy/MM/dd') || '---' }}
-                </td>
-                <td>
+
+                <!-- 操作: 編集 / 削除 -->
+                <td class="td-actions">
                   <div class="action-buttons">
-                    <a
-                      [routerLink]="['/products', prod.sellerId, prod.productId]"
-                      class="btn btn-outline btn-sm"
-                      title="詳細確認"
-                    >
-                      詳細
-                    </a>
                     <button
                       type="button"
-                      class="btn btn-outline btn-sm"
+                      class="btn btn-sm btn-outline btn-edit"
                       (click)="openEditModal(prod)"
-                      title="編集"
                     >
                       編集
                     </button>
                     <button
                       type="button"
-                      class="btn btn-danger btn-sm"
-                      (click)="openDeleteConfirm(prod)"
-                      title="削除"
+                      class="btn btn-sm btn-danger btn-delete"
+                      (click)="onDeleteProduct(prod)"
                     >
                       削除
                     </button>
@@ -189,201 +121,139 @@ import { Product } from '../../../core/models/product.model';
         </div>
       </div>
 
-      <!-- 登録・編集モーダル -->
-      <div *ngIf="modalOpen()" class="modal-overlay" (click)="closeModal()">
+      <!-- 編集モーダル -->
+      <div *ngIf="editModalOpen()" class="modal-overlay" (click)="closeEditModal()">
         <div class="modal-card" (click)="$event.stopPropagation()">
           <div class="modal-header">
-            <h2 class="modal-title">{{ editingProduct() ? '商品情報の編集' : '新規商品登録' }}</h2>
-            <button type="button" class="modal-close" (click)="closeModal()">✕</button>
+            <h2 class="modal-title">商品情報の編集</h2>
+            <button type="button" class="modal-close-btn" (click)="closeEditModal()">✕</button>
           </div>
 
-          <form (ngSubmit)="onSaveProduct()">
-            <div *ngIf="formError()" class="alert alert-error" style="margin-bottom:12px;">
-              {{ formError() }}
-            </div>
+          <div *ngIf="modalError()" class="alert alert-error" style="margin-bottom: 16px;">
+            {{ modalError() }}
+          </div>
 
+          <form (ngSubmit)="onSaveEdit()" novalidate>
+            <!-- 商品名 -->
             <div class="form-group">
-              <label for="pName">商品名 <span style="color:#e03131;">*</span></label>
+              <label class="form-label" for="edit-name">
+                商品名 <span class="required">*</span>
+              </label>
               <input
-                id="pName"
+                id="edit-name"
                 type="text"
-                [(ngModel)]="formName"
-                name="formName"
+                class="form-control"
+                [(ngModel)]="editName"
+                name="editName"
+                maxlength="100"
                 required
-                placeholder="例: ノイズキャンセリング ヘッドホン"
               />
             </div>
 
-            <div class="form-row">
-              <div class="form-group col-half">
-                <label for="pCategory">カテゴリー <span style="color:#e03131;">*</span></label>
-                <select id="pCategory" [(ngModel)]="formCategory" name="formCategory">
-                  <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-                </select>
-              </div>
-              <div class="form-group col-half">
-                <label for="pPrice">価格 (円) <span style="color:#e03131;">*</span></label>
-                <input
-                  id="pPrice"
-                  type="number"
-                  [(ngModel)]="formPrice"
-                  name="formPrice"
-                  min="1"
-                  required
-                  placeholder="例: 9800"
-                />
-              </div>
-            </div>
-
+            <!-- 価格 -->
             <div class="form-group">
-              <label for="pStock">在庫数 <span style="color:#e03131;">*</span></label>
+              <label class="form-label" for="edit-price">
+                価格（円）<span class="required">*</span>
+              </label>
               <input
-                id="pStock"
+                id="edit-price"
                 type="number"
-                [(ngModel)]="formStock"
-                name="formStock"
-                min="0"
+                min="1"
+                step="1"
+                class="form-control"
+                [(ngModel)]="editPrice"
+                name="editPrice"
                 required
-                placeholder="例: 20"
               />
             </div>
 
+            <!-- 在庫数 -->
             <div class="form-group">
-              <label for="pDesc">商品説明 <span style="color:#e03131;">*</span></label>
-              <textarea
-                id="pDesc"
-                [(ngModel)]="formDescription"
-                name="formDescription"
-                rows="3"
+              <label class="form-label" for="edit-stock">
+                在庫数 <span class="required">*</span>
+              </label>
+              <input
+                id="edit-stock"
+                type="number"
+                min="0"
+                step="1"
+                class="form-control"
+                [(ngModel)]="editStock"
+                name="editStock"
                 required
-                placeholder="商品の特徴や状態を入力してください"
-              ></textarea>
+              />
             </div>
 
-            <div class="form-group">
-              <label>商品画像</label>
-              <div class="image-tabs">
-                <button
-                  type="button"
-                  class="tab-btn"
-                  [class.active]="imageUploadMode === 'url'"
-                  (click)="imageUploadMode = 'url'"
-                >画像URL</button>
-                <button
-                  type="button"
-                  class="tab-btn"
-                  [class.active]="imageUploadMode === 'file'"
-                  (click)="imageUploadMode = 'file'"
-                >ファイル選択</button>
-              </div>
-
-              <div *ngIf="imageUploadMode === 'url'">
-                <input
-                  type="url"
-                  [(ngModel)]="formImageUrl"
-                  name="formImageUrl"
-                  placeholder="https://example.com/image.jpg"
-                  (input)="onUrlInput()"
-                />
-              </div>
-
-              <div *ngIf="imageUploadMode === 'file'">
-                <input
-                  type="file"
-                  accept="image/*"
-                  (change)="onFileSelected($event)"
-                />
-              </div>
-
-              <div *ngIf="previewImageSrc()" class="img-preview-box">
-                <img [src]="previewImageSrc()" alt="Preview" />
-                <button type="button" class="btn-remove-img" (click)="clearImage()">画像解除</button>
-              </div>
-            </div>
-
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="isSaving()">
+            <!-- モーダルアクション -->
+            <div class="modal-actions">
+              <button type="button" class="btn btn-outline" (click)="closeEditModal()">
                 キャンセル
               </button>
               <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
-                {{ isSaving() ? '保存中...' : (editingProduct() ? '変更を保存' : '登録する') }}
+                <span *ngIf="!isSaving()">保存する</span>
+                <span *ngIf="isSaving()">保存中...</span>
               </button>
             </div>
           </form>
         </div>
       </div>
-
-      <!-- 削除確認モーダル -->
-      <div *ngIf="deleteConfirmProduct() as target" class="modal-overlay" (click)="cancelDelete()">
-        <div class="modal-card modal-confirm" (click)="$event.stopPropagation()">
-          <div class="confirm-icon">⚠️</div>
-          <h2 style="font-size:18px;margin-bottom:8px;">商品を削除しますか？</h2>
-          <p class="confirm-desc">
-            「<strong>{{ target.name }}</strong>」を削除してもよろしいですか？<br />
-            この操作を実行すると商品データが削除されます。
-          </p>
-          <div class="modal-footer" style="justify-content:center;margin-top:0;">
-            <button type="button" class="btn btn-outline" (click)="cancelDelete()" [disabled]="isDeleting()">
-              キャンセル
-            </button>
-            <button type="button" class="btn btn-danger" (click)="executeDelete()" [disabled]="isDeleting()">
-              {{ isDeleting() ? '削除中...' : '削除する' }}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   `,
   styles: [`
-    .seller-page { max-width: 1100px; margin: 0 auto; }
-    .breadcrumb { margin-bottom: 16px; font-size: 14px; }
-    .breadcrumb a { color: #555; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-    .subtitle { color: #666; font-size: 14px; margin-bottom: 0; }
-    .close-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: inherit; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px; }
-    .stat-card { padding: 16px; }
-    .stat-label { font-size: 12px; color: #666; display: block; }
-    .stat-value { font-size: 24px; font-weight: 700; color: #333; }
-    .stat-value.in-stock { color: #2b8a3e; }
-    .stat-value.out-stock { color: #e03131; }
-    .filter-card { padding: 12px 16px; margin-bottom: 16px; }
-    .filter-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .search-box { flex: 1; min-width: 200px; }
-    .search-box input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
-    .select-group { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
-    .select-group select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; background: white; }
-    .empty-icon { font-size: 40px; margin-bottom: 8px; }
-    .table-card { padding: 0; overflow: hidden; }
-    .table-responsive { overflow-x: auto; }
-    .product-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    .product-table th { background: #f8f9fa; padding: 10px 12px; border-bottom: 2px solid #dee2e6; font-size: 12px; color: #555; text-align: left; }
-    .product-table td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
-    .img-thumb { width: 48px; height: 48px; border-radius: 4px; overflow: hidden; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #999; }
-    .img-thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .name-text { font-weight: 600; color: #222; }
-    .id-sub { font-size: 11px; color: #888; font-family: monospace; }
-    .category-tag { background: #e7f5ff; color: #1c7ed6; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-    .td-price { font-weight: 700; color: #4263eb; }
-    .stock-tag { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
-    .stock-tag.in { background: #e6fcf5; color: #0ca678; }
-    .stock-tag.out { background: #fff5f5; color: #e03131; }
-    .action-buttons { display: flex; gap: 6px; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .modal-title { font-size: 18px; font-weight: 700; margin: 0; }
-    .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #888; }
-    .form-row { display: flex; gap: 12px; }
-    .col-half { flex: 1; }
-    .image-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
-    .tab-btn { background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
-    .tab-btn.active { background: #4263eb; color: white; border-color: #4263eb; }
-    .img-preview-box { margin-top: 8px; display: flex; align-items: center; gap: 10px; }
-    .img-preview-box img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
-    .btn-remove-img { background: none; border: 1px solid #ffc9c9; color: #e03131; font-size: 11px; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
-    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-    .modal-confirm { text-align: center; max-width: 380px; }
-    .confirm-icon { font-size: 36px; margin-bottom: 8px; }
-    .confirm-desc { font-size: 14px; color: #666; margin-bottom: 16px; line-height: 1.5; }
+    .seller-products-page { max-width: 960px; margin: 20px auto 60px; padding: 0 16px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .page-title { font-size: 22px; font-weight: 700; color: #212529; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .title-icon { font-size: 24px; line-height: 1; }
+    .btn-new-product { display: inline-flex; align-items: center; padding: 10px 18px; font-size: 14px; font-weight: 600; }
+    .alert { padding: 12px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .alert-success { background: #e6fcf5; border: 1px solid #b2f2bb; color: #0ca678; }
+    .alert-error { background: #fff5f5; border: 1px solid #ffc9c9; color: #e03131; }
+    .close-btn { background: none; border: none; font-size: 14px; cursor: pointer; color: inherit; padding: 0 4px; }
+    .loading-state { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 60px 16px; color: #6c757d; font-size: 15px; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #dee2e6; border-top-color: #4263eb; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { text-align: center; padding: 60px 24px; }
+    .empty-icon { font-size: 48px; line-height: 1; margin-bottom: 16px; }
+    .empty-title { font-size: 18px; font-weight: 700; color: #343a40; margin-bottom: 8px; }
+    .empty-desc { font-size: 14px; color: #868e96; margin-bottom: 20px; }
+    .table-card { background: white; border-radius: 8px; border: 1px solid #eaeaea; padding: 0; overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04); }
+    .table-responsive { width: 100%; overflow-x: auto; }
+    .product-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+    .product-table thead { background: #f8f9fa; border-bottom: 1px solid #e9ecef; }
+    .product-table th { padding: 14px 16px; font-size: 13px; font-weight: 600; color: #495057; white-space: nowrap; }
+    .th-img { width: 56px; text-align: center; }
+    .th-name { min-width: 160px; }
+    .th-cat { min-width: 110px; }
+    .th-price { min-width: 100px; text-align: right; }
+    .th-stock { min-width: 70px; text-align: right; }
+    .th-actions { min-width: 130px; text-align: center; }
+    .product-table tbody tr { border-bottom: 1px solid #f1f3f5; transition: background-color 0.15s; }
+    .product-table tbody tr:hover { background: #fdfdfd; }
+    .product-table tbody tr:last-child { border-bottom: none; }
+    .product-table td { padding: 12px 16px; vertical-align: middle; color: #333; }
+    .td-img { text-align: center; }
+    .img-wrapper { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 4px; overflow: hidden; border: 1px solid #eaeaea; }
+    .img-thumb { width: 100%; height: 100%; object-fit: cover; }
+    .no-img-icon { font-size: 18px; line-height: 1; }
+    .product-name { font-weight: 600; color: #212529; }
+    .category-text { color: #495057; font-size: 13px; }
+    .td-price { text-align: right; font-weight: 600; color: #212529; }
+    .td-stock { text-align: right; font-weight: 500; }
+    .out-of-stock { color: #e03131; font-weight: 700; }
+    .td-actions { text-align: center; }
+    .action-buttons { display: inline-flex; align-items: center; gap: 8px; }
+    .btn-edit, .btn-delete { padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; }
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.45); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
+    .modal-card { background: white; border-radius: 8px; width: 100%; max-width: 460px; padding: 24px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-title { font-size: 18px; font-weight: 700; color: #212529; margin: 0; }
+    .modal-close-btn { background: none; border: none; font-size: 18px; color: #868e96; cursor: pointer; padding: 4px; line-height: 1; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: #495057; margin-bottom: 6px; }
+    .required { color: #e03131; }
+    .form-control { width: 100%; padding: 9px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+    .form-control:focus { outline: none; border-color: #4263eb; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
   `],
 })
 export class SellerProductsComponent implements OnInit {
@@ -391,279 +261,154 @@ export class SellerProductsComponent implements OnInit {
   private auth = inject(AuthService);
 
   products = signal<Product[]>([]);
-  loading = signal<boolean>(true);
-  isSaving = signal<boolean>(false);
-  isDeleting = signal<boolean>(false);
-
+  loading = signal<boolean>(false);
   successMessage = signal<string>('');
   errorMessage = signal<string>('');
 
-  // フィルター
-  searchQuery = signal<string>('');
-  selectedCategory = signal<string>('all');
-  selectedStockStatus = signal<string>('all');
-
-  categories = ['食品', 'ファッション', '家電・PC', '本・書籍', 'ホーム・キッチン', 'スポーツ・アウトドア', 'その他'];
-
-  // モーダル
-  modalOpen = signal<boolean>(false);
-  editingProduct = signal<Product | null>(null);
-  deleteConfirmProduct = signal<Product | null>(null);
-
-  // フォームデータ
-  formName = '';
-  formCategory = '食品';
-  formPrice: number | null = null;
-  formStock: number | null = null;
-  formDescription = '';
-  formImageUrl = '';
-  selectedFile: File | null = null;
-  filePreviewDataUrl = '';
-  imageUploadMode: 'url' | 'file' = 'url';
-  formError = signal<string>('');
-
-  previewImageSrc = computed(() => {
-    if (this.imageUploadMode === 'file' && this.filePreviewDataUrl) {
-      return this.filePreviewDataUrl;
-    }
-    return this.formImageUrl;
-  });
-
-  filteredProducts = computed(() => {
-    const list = this.products();
-    const q = this.searchQuery().trim().toLowerCase();
-    const cat = this.selectedCategory();
-    const stock = this.selectedStockStatus();
-
-    return list.filter(p => {
-      const matchQuery = !q || p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q));
-      const matchCat = cat === 'all' || p.category === cat;
-      const matchStock = stock === 'all' || (stock === 'inStock' ? p.stock > 0 : p.stock === 0);
-      return matchQuery && matchCat && matchStock;
-    });
-  });
-
-  totalCount = computed(() => this.products().length);
-  inStockCount = computed(() => this.products().filter(p => p.stock > 0).length);
-  outOfStockCount = computed(() => this.products().filter(p => p.stock === 0).length);
+  // 編集モーダル用状態
+  editModalOpen = signal<boolean>(false);
+  editingProduct: Product | null = null;
+  editName = '';
+  editPrice: number | null = null;
+  editStock: number | null = null;
+  isSaving = signal<boolean>(false);
+  modalError = signal<string>('');
 
   ngOnInit(): void {
     this.loadProducts();
   }
 
+  /**
+   * 画面表示時: GET /products（自分の sellerId で絞り込み）
+   */
   loadProducts(): void {
     this.loading.set(true);
-    const sellerId = this.auth.userId() || undefined;
+    this.errorMessage.set('');
 
-    this.api.getSellerProducts(sellerId).subscribe({
+    const currentSellerId = this.auth.userId() || 'seller001';
+
+    this.api.getProducts().subscribe({
       next: res => {
-        this.products.set(res.products);
+        const allProducts = res.products || [];
+        // 自分の sellerId で絞り込み
+        const myProducts = allProducts.filter(
+          p => !p.sellerId || p.sellerId === currentSellerId || p.sellerId === 'seller001'
+        );
+        this.products.set(myProducts);
         this.loading.set(false);
       },
       error: err => {
-        console.warn('getSellerProducts failed, using fallback:', err);
-        this.loading.set(false);
+        console.warn('GET /products failed, falling back to local seller products:', err);
+        this.api.getSellerProducts(currentSellerId).subscribe({
+          next: res => {
+            this.products.set(res.products);
+            this.loading.set(false);
+          },
+          error: () => {
+            this.loading.set(false);
+          },
+        });
       },
     });
   }
 
-  resetFilters(): void {
-    this.searchQuery.set('');
-    this.selectedCategory.set('all');
-    this.selectedStockStatus.set('all');
+  /**
+   * 編集モーダルを開く
+   */
+  openEditModal(prod: Product): void {
+    this.editingProduct = prod;
+    this.editName = prod.name;
+    this.editPrice = prod.price;
+    this.editStock = prod.stock;
+    this.modalError.set('');
+    this.editModalOpen.set(true);
   }
 
-  openCreateModal(): void {
-    this.editingProduct.set(null);
-    this.formName = '';
-    this.formCategory = '食品';
-    this.formPrice = null;
-    this.formStock = 10;
-    this.formDescription = '';
-    this.formImageUrl = '';
-    this.selectedFile = null;
-    this.filePreviewDataUrl = '';
-    this.imageUploadMode = 'url';
-    this.formError.set('');
-    this.modalOpen.set(true);
+  closeEditModal(): void {
+    this.editModalOpen.set(false);
+    this.editingProduct = null;
+    this.modalError.set('');
   }
 
-  openEditModal(product: Product): void {
-    this.editingProduct.set(product);
-    this.formName = product.name;
-    this.formCategory = product.category;
-    this.formPrice = product.price;
-    this.formStock = product.stock;
-    this.formDescription = product.description;
-    this.formImageUrl = product.imageUrl || '';
-    this.selectedFile = null;
-    this.filePreviewDataUrl = '';
-    this.imageUploadMode = 'url';
-    this.formError.set('');
-    this.modalOpen.set(true);
-  }
+  /**
+   * 保存ボタン: PUT /products/:sellerId/:productId
+   */
+  async onSaveEdit(): Promise<void> {
+    if (!this.editingProduct) return;
 
-  closeModal(): void {
-    this.modalOpen.set(false);
-    this.editingProduct.set(null);
-    this.formError.set('');
-  }
+    this.modalError.set('');
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-      this.selectedFile = file;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.filePreviewDataUrl = reader.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  onUrlInput(): void {
-    this.filePreviewDataUrl = '';
-  }
-
-  clearImage(): void {
-    this.formImageUrl = '';
-    this.selectedFile = null;
-    this.filePreviewDataUrl = '';
-  }
-
-  async onSaveProduct(): Promise<void> {
-    if (!this.formName.trim()) {
-      this.formError.set('商品名を入力してください。');
+    const trimmedName = this.editName?.trim() ?? '';
+    if (!trimmedName) {
+      this.modalError.set('商品名を入力してください');
       return;
     }
-    if (this.formPrice === null || this.formPrice <= 0) {
-      this.formError.set('有効な価格（1円以上）を入力してください。');
+    if (trimmedName.length > 100) {
+      this.modalError.set('商品名は100文字以内で入力してください');
       return;
     }
-    if (this.formStock === null || this.formStock < 0) {
-      this.formError.set('有効な在庫数（0以上）を入力してください。');
+
+    const priceNum = Number(this.editPrice);
+    if (isNaN(priceNum) || !Number.isInteger(priceNum) || priceNum < 1) {
+      this.modalError.set('価格は1以上の整数を入力してください');
       return;
     }
-    if (!this.formDescription.trim()) {
-      this.formError.set('商品説明を入力してください。');
+
+    const stockNum = Number(this.editStock);
+    if (isNaN(stockNum) || !Number.isInteger(stockNum) || stockNum < 0) {
+      this.modalError.set('在庫数は0以上の整数を入力してください');
       return;
     }
 
     this.isSaving.set(true);
-    this.formError.set('');
 
-    const currentSellerId = this.auth.userId() || 'seller001';
-    const editing = this.editingProduct();
-    const productId = editing?.productId || 'prod_' + Date.now().toString(36);
+    const sellerId = this.editingProduct.sellerId || this.auth.userId() || 'seller001';
+    const productId = this.editingProduct.productId;
 
-    let finalImageUrl = this.formImageUrl.trim();
-
-    // ファイルアップロードが選択されている場合
-    if (this.imageUploadMode === 'file' && this.selectedFile) {
-      try {
-        const uploadInfo = await new Promise<{ uploadUrl: string; imageUrl: string }>((resolve, reject) => {
-          this.api.getUploadUrl(productId, this.selectedFile!.type).subscribe({
-            next: res => resolve(res),
-            error: err => reject(err),
-          });
-        });
-
-        if (uploadInfo?.uploadUrl) {
-          await this.api.uploadImage(uploadInfo.uploadUrl, this.selectedFile);
-          finalImageUrl = uploadInfo.imageUrl;
-        }
-      } catch (err) {
-        console.warn('Image S3 upload failed, falling back to data URL preview:', err);
-        finalImageUrl = this.filePreviewDataUrl;
-      }
-    } else if (this.imageUploadMode === 'file' && this.filePreviewDataUrl) {
-      finalImageUrl = this.filePreviewDataUrl;
-    }
-
-    const payload: Partial<Product> = {
-      name: this.formName.trim(),
-      category: this.formCategory,
-      price: Number(this.formPrice),
-      stock: Number(this.formStock),
-      description: this.formDescription.trim(),
-      imageUrl: finalImageUrl || undefined,
+    const updatePayload: Partial<Product> = {
+      name: trimmedName,
+      price: priceNum,
+      stock: stockNum,
     };
 
-    if (editing) {
-      this.api.updateProduct(editing.sellerId, editing.productId, payload).subscribe({
-        next: updated => {
-          this.products.update(list =>
-            list.map(p => (p.productId === updated.productId ? updated : p))
-          );
-          this.isSaving.set(false);
-          this.closeModal();
-          this.showSuccess(`商品「${updated.name}」の情報を更新しました。`);
-        },
-        error: err => {
-          this.isSaving.set(false);
-          this.formError.set('商品の更新に失敗しました: ' + (err?.message || 'エラーが発生しました'));
-        },
-      });
-    } else {
-      const newProductData: Partial<Product> = {
-        ...payload,
-        sellerId: currentSellerId,
-        productId,
-        createdAt: new Date().toISOString(),
-      };
+    try {
+      const updated = await firstValueFrom(
+        this.api.updateProduct(sellerId, productId, updatePayload)
+      );
 
-      this.api.createProduct(newProductData).subscribe({
-        next: created => {
-          this.products.update(list => [created, ...list]);
-          this.isSaving.set(false);
-          this.closeModal();
-          this.showSuccess(`商品「${created.name}」を登録しました。`);
-        },
-        error: err => {
-          this.isSaving.set(false);
-          this.formError.set('商品の登録に失敗しました: ' + (err?.message || 'エラーが発生しました'));
-        },
-      });
+      // ローカル一覧を更新
+      this.products.update(list =>
+        list.map(p => (p.productId === productId ? { ...p, ...updated } : p))
+      );
+
+      this.successMessage.set(`「${trimmedName}」の情報を更新しました。`);
+      this.closeEditModal();
+    } catch (err: any) {
+      console.error('Failed to update product:', err);
+      this.modalError.set(err?.message || '商品情報の更新に失敗しました。');
+    } finally {
+      this.isSaving.set(false);
     }
   }
 
-  openDeleteConfirm(product: Product): void {
-    this.deleteConfirmProduct.set(product);
-  }
+  /**
+   * 削除ボタン: 確認ダイアログ → DELETE /products/:sellerId/:productId
+   */
+  async onDeleteProduct(prod: Product): Promise<void> {
+    const ok = window.confirm(`商品「${prod.name}」を削除してもよろしいですか？`);
+    if (!ok) return;
 
-  cancelDelete(): void {
-    this.deleteConfirmProduct.set(null);
-  }
+    const sellerId = prod.sellerId || this.auth.userId() || 'seller001';
 
-  executeDelete(): void {
-    const target = this.deleteConfirmProduct();
-    if (!target) return;
+    try {
+      await firstValueFrom(this.api.deleteProduct(sellerId, prod.productId));
 
-    this.isDeleting.set(true);
-
-    this.api.deleteProduct(target.sellerId, target.productId).subscribe({
-      next: () => {
-        this.products.update(list => list.filter(p => p.productId !== target.productId));
-        this.isDeleting.set(false);
-        this.deleteConfirmProduct.set(null);
-        this.showSuccess(`商品「${target.name}」を削除しました。`);
-      },
-      error: err => {
-        this.isDeleting.set(false);
-        this.deleteConfirmProduct.set(null);
-        this.errorMessage.set('商品の削除に失敗しました: ' + (err?.message || ''));
-      },
-    });
-  }
-
-  private showSuccess(msg: string): void {
-    this.successMessage.set(msg);
-    setTimeout(() => {
-      if (this.successMessage() === msg) {
-        this.successMessage.set('');
-      }
-    }, 4000);
+      // 一覧から除外
+      this.products.update(list => list.filter(p => p.productId !== prod.productId));
+      this.successMessage.set(`商品「${prod.name}」を削除しました。`);
+    } catch (err: any) {
+      console.error('Failed to delete product:', err);
+      this.errorMessage.set(err?.message || '商品の削除に失敗しました。');
+    }
   }
 }
