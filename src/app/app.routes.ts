@@ -87,6 +87,16 @@ export const routes: Routes = [
       import('./features/consumer/orders/orders.component').then(m => m.OrdersComponent),
   },
 
+  // 出品者向け商品登録画面（S08）
+  {
+    path: 'seller/products/new',
+    canActivate: [authGuard, sellerGuard],
+    loadComponent: () =>
+      import('./features/seller/product-new/product-new.component').then(
+        m => m.ProductNewComponent
+      ),
+  },
+
   // 出品者向け商品管理画面（S09）
   {
     path: 'seller/products',

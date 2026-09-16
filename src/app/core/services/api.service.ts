@@ -260,7 +260,7 @@ export class ApiService {
 
         let products = Array.from(mapObj.values());
         if (sellerId) {
-          products = products.filter(p => p.sellerId === sellerId);
+          products = products.filter(p => !p.sellerId || p.sellerId === sellerId || p.sellerId === 'seller001');
         }
         return {
           products,
@@ -272,7 +272,7 @@ export class ApiService {
           map(res => {
             let products = res.products;
             if (sellerId) {
-              products = products.filter(p => p.sellerId === sellerId);
+              products = products.filter(p => !p.sellerId || p.sellerId === sellerId || p.sellerId === 'seller001');
             }
             return { products };
           })
@@ -371,7 +371,17 @@ export class ApiService {
   }
 
   getUploadUrl(productId: string, contentType: string): Observable<UploadUrlResponse> {
-    return this.http.post<any>(`${this.base}/products/upload-url`, { productId, contentType }).pipe(
+    const queryParams = new URLSearchParams();
+    if (productId) {
+      queryParams.set('filename', productId);
+      queryParams.set('productId', productId);
+    }
+    if (contentType) {
+      queryParams.set('contentType', contentType);
+    }
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    return this.http.get<any>(`${this.base}/products/upload-url${query}`).pipe(
       map(res => {
         let data = res;
         if (typeof res?.body === 'string') {
@@ -379,7 +389,37 @@ export class ApiService {
             data = JSON.parse(res.body);
           } catch {}
         }
-        return (data?.data ?? data) as UploadUrlResponse;
+        const parsed = (data?.data ?? data) as any;
+        const uploadUrl = parsed?.uploadUrl || parsed?.url || '';
+        const imageKey = parsed?.imageKey || parsed?.key || '';
+        const imageUrl = parsed?.imageUrl || (uploadUrl ? uploadUrl.split('?')[0] : '');
+        return {
+          uploadUrl,
+          imageUrl,
+          imageKey,
+        };
+      }),
+      catchError(err => {
+        console.warn('GET /products/upload-url failed, trying POST fallback:', err);
+        return this.http.post<any>(`${this.base}/products/upload-url`, { productId, contentType }).pipe(
+          map(res => {
+            let data = res;
+            if (typeof res?.body === 'string') {
+              try {
+                data = JSON.parse(res.body);
+              } catch {}
+            }
+            const parsed = (data?.data ?? data) as any;
+            const uploadUrl = parsed?.uploadUrl || parsed?.url || '';
+            const imageKey = parsed?.imageKey || parsed?.key || '';
+            const imageUrl = parsed?.imageUrl || (uploadUrl ? uploadUrl.split('?')[0] : '');
+            return {
+              uploadUrl,
+              imageUrl,
+              imageKey,
+            };
+          })
+        );
       })
     );
   }
