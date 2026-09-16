@@ -143,11 +143,15 @@ import { Product } from '../../../core/models/product.model';
                 id="edit-name"
                 type="text"
                 class="form-control"
+                [class.is-invalid]="editErrors()['name']"
                 [(ngModel)]="editName"
                 name="editName"
                 maxlength="100"
                 required
               />
+              <span class="field-error" *ngIf="editErrors()['name']">
+                {{ editErrors()['name'] }}
+              </span>
             </div>
 
             <!-- 価格 -->
@@ -161,10 +165,14 @@ import { Product } from '../../../core/models/product.model';
                 min="1"
                 step="1"
                 class="form-control"
+                [class.is-invalid]="editErrors()['price']"
                 [(ngModel)]="editPrice"
                 name="editPrice"
                 required
               />
+              <span class="field-error" *ngIf="editErrors()['price']">
+                {{ editErrors()['price'] }}
+              </span>
             </div>
 
             <!-- 在庫数 -->
@@ -178,10 +186,14 @@ import { Product } from '../../../core/models/product.model';
                 min="0"
                 step="1"
                 class="form-control"
+                [class.is-invalid]="editErrors()['stock']"
                 [(ngModel)]="editStock"
                 name="editStock"
                 required
               />
+              <span class="field-error" *ngIf="editErrors()['stock']">
+                {{ editErrors()['stock'] }}
+              </span>
             </div>
 
             <!-- モーダルアクション -->
@@ -190,8 +202,11 @@ import { Product } from '../../../core/models/product.model';
                 キャンセル
               </button>
               <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
+                <span *ngIf="isSaving()" class="btn-loading-content">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span>保存中...</span>
+                </span>
                 <span *ngIf="!isSaving()">保存する</span>
-                <span *ngIf="isSaving()">保存中...</span>
               </button>
             </div>
           </form>
@@ -273,6 +288,7 @@ export class SellerProductsComponent implements OnInit {
   editStock: number | null = null;
   isSaving = signal<boolean>(false);
   modalError = signal<string>('');
+  editErrors = signal<Record<string, string>>({});
 
   ngOnInit(): void {
     this.loadProducts();
@@ -321,6 +337,7 @@ export class SellerProductsComponent implements OnInit {
     this.editPrice = prod.price;
     this.editStock = prod.stock;
     this.modalError.set('');
+    this.editErrors.set({});
     this.editModalOpen.set(true);
   }
 
@@ -328,6 +345,7 @@ export class SellerProductsComponent implements OnInit {
     this.editModalOpen.set(false);
     this.editingProduct = null;
     this.modalError.set('');
+    this.editErrors.set({});
   }
 
   /**
@@ -337,26 +355,31 @@ export class SellerProductsComponent implements OnInit {
     if (!this.editingProduct) return;
 
     this.modalError.set('');
+    const errors: Record<string, string> = {};
 
     const trimmedName = this.editName?.trim() ?? '';
     if (!trimmedName) {
-      this.modalError.set('商品名を入力してください');
-      return;
-    }
-    if (trimmedName.length > 100) {
-      this.modalError.set('商品名は100文字以内で入力してください');
-      return;
+      errors['name'] = '商品名を入力してください';
+    } else if (trimmedName.length > 100) {
+      errors['name'] = '商品名は100文字以内で入力してください';
     }
 
     const priceNum = Number(this.editPrice);
-    if (isNaN(priceNum) || !Number.isInteger(priceNum) || priceNum < 1) {
-      this.modalError.set('価格は1以上の整数を入力してください');
-      return;
+    if (this.editPrice === null || this.editPrice === undefined || String(this.editPrice).trim() === '') {
+      errors['price'] = '価格を入力してください';
+    } else if (isNaN(priceNum) || !Number.isInteger(priceNum) || priceNum < 1) {
+      errors['price'] = '価格は1以上の整数を入力してください';
     }
 
     const stockNum = Number(this.editStock);
-    if (isNaN(stockNum) || !Number.isInteger(stockNum) || stockNum < 0) {
-      this.modalError.set('在庫数は0以上の整数を入力してください');
+    if (this.editStock === null || this.editStock === undefined || String(this.editStock).trim() === '') {
+      errors['stock'] = '在庫数を入力してください';
+    } else if (isNaN(stockNum) || !Number.isInteger(stockNum) || stockNum < 0) {
+      errors['stock'] = '在庫数は0以上の整数を入力してください';
+    }
+
+    this.editErrors.set(errors);
+    if (Object.keys(errors).length > 0) {
       return;
     }
 

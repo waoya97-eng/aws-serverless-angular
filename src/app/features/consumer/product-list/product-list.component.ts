@@ -225,7 +225,17 @@ import { ProductCardComponent } from '../../../shared/components/product-card/pr
       }
     }
 
-    /* スケルトンローディング */
+    /* スケルトンローディング（3×2 グリッド） */
+    .skeleton-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 768px) {
+      .skeleton-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .skeleton-grid { grid-template-columns: 1fr; }
+    }
+
     .skeleton-card {
       padding: 0;
       overflow: hidden;
@@ -343,8 +353,8 @@ export class ProductListComponent implements OnInit {
   nextLastKey = signal<string | undefined>(undefined);
   keyHistory = signal<string[]>([]); // 過去のキー履歴スタック（前ページに戻る用）
 
-  // ローディング時のスケルトン用（12件）
-  skeletonItems = Array.from({ length: 12 }, (_, i) => i);
+  // ローディング時のスケルトン用（3×2 グリッド: 6件）
+  skeletonItems = Array.from({ length: 6 }, (_, i) => i);
 
   // トースト通知
   toastMessage = signal<string>('');
