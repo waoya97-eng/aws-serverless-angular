@@ -232,8 +232,64 @@ export class ApiService {
           ? data
           : data?.orders ?? data?.items ?? [];
         return { orders };
+      }),
+      catchError(err => {
+        console.warn('API getSellerOrders failed, falling back to local orders:', err);
+        return of({ orders: this.loadLocalSellerOrders() });
       })
     );
+  }
+
+  private loadLocalSellerOrders(): Order[] {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const data = localStorage.getItem('ec_orders');
+        if (data) {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+
+    // バックエンド未接続時のワイヤーフレーム初期表示用データ
+    return [
+      {
+        orderId: '9Z8Y7X6W',
+        buyerId: 'user_001',
+        buyerName: '田中 太郎',
+        createdAt: '2024-03-10T15:00:00Z',
+        totalAmount: 9960,
+        status: 'confirmed',
+        items: [
+          {
+            sellerId: 'seller001',
+            productId: 'prod_001',
+            name: 'ワイヤレスイヤホン Pro',
+            price: 4980,
+            quantity: 2,
+          },
+        ],
+      },
+      {
+        orderId: 'A1B2C3D4',
+        buyerId: 'user_002',
+        buyerName: '鈴木 花子',
+        createdAt: '2024-03-08T09:15:00Z',
+        totalAmount: 4980,
+        status: 'confirmed',
+        items: [
+          {
+            sellerId: 'seller001',
+            productId: 'prod_001',
+            name: 'ワイヤレスイヤホン Pro',
+            price: 4980,
+            quantity: 1,
+          },
+        ],
+      },
+    ];
   }
 
   // ─── 出品者向け商品管理 API ──────────────────────────────────────────
