@@ -22,14 +22,9 @@ import { AuthService } from '../../../core/services/auth.service';
               type="email"
               [(ngModel)]="email"
               name="email"
-              [class.is-invalid]="fieldErrors()['email']"
-              (input)="clearFieldError('email')"
+              required
               placeholder="example@email.com"
             />
-            <!-- 入力フィールド直下の赤字エラー -->
-            <span class="field-error" *ngIf="fieldErrors()['email']">
-              {{ fieldErrors()['email'] }}
-            </span>
           </div>
 
           <div class="form-group">
@@ -39,32 +34,22 @@ import { AuthService } from '../../../core/services/auth.service';
               type="password"
               [(ngModel)]="password"
               name="password"
-              [class.is-invalid]="fieldErrors()['password']"
-              (input)="clearFieldError('password')"
+              required
+              minlength="8"
               placeholder="パスワード"
             />
-            <!-- 入力フィールド直下の赤字エラー -->
-            <span class="field-error" *ngIf="fieldErrors()['password']">
-              {{ fieldErrors()['password'] }}
-            </span>
           </div>
 
-          <!-- 全体エラー（認証失敗等） -->
           <p class="error-message" *ngIf="errorMessage()">{{ errorMessage() }}</p>
 
-          <!-- 送信ボタン: 送信中は非活性 + スピナー表示 -->
-          <button type="submit" class="btn btn-primary btn-submit" [disabled]="loading()">
-            <span *ngIf="loading()" class="btn-loading-content">
-              <span class="spinner" aria-hidden="true"></span>
-              <span>ログイン中...</span>
-            </span>
-            <span *ngIf="!loading()">ログイン</span>
+          <button type="submit" class="btn btn-primary" style="width:100%" [disabled]="loading()">
+            {{ loading() ? 'ログイン中...' : 'ログイン' }}
           </button>
         </form>
 
         <!-- 初回パスワード変更フォーム -->
         <form *ngIf="isNewPasswordRequired()" (ngSubmit)="onNewPasswordSubmit()" novalidate>
-          <p class="hint-text">
+          <p style="font-size: 13px; color: #666; margin-bottom: 16px;">
             初回ログインのため、新しいパスワードを設定してください。
           </p>
           <div class="form-group">
@@ -74,25 +59,16 @@ import { AuthService } from '../../../core/services/auth.service';
               type="password"
               [(ngModel)]="newPassword"
               name="newPassword"
-              [class.is-invalid]="fieldErrors()['newPassword']"
-              (input)="clearFieldError('newPassword')"
+              required
+              minlength="8"
               placeholder="8文字以上（大文字・小文字・数字）"
             />
-            <!-- 入力フィールド直下の赤字エラー -->
-            <span class="field-error" *ngIf="fieldErrors()['newPassword']">
-              {{ fieldErrors()['newPassword'] }}
-            </span>
           </div>
 
           <p class="error-message" *ngIf="errorMessage()">{{ errorMessage() }}</p>
 
-          <!-- 送信ボタン: 送信中は非活性 + スピナー表示 -->
-          <button type="submit" class="btn btn-primary btn-submit" [disabled]="loading()">
-            <span *ngIf="loading()" class="btn-loading-content">
-              <span class="spinner" aria-hidden="true"></span>
-              <span>設定中...</span>
-            </span>
-            <span *ngIf="!loading()">パスワードを設定してログイン</span>
+          <button type="submit" class="btn btn-primary" style="width:100%" [disabled]="loading()">
+            {{ loading() ? '設定中...' : 'パスワードを設定してログイン' }}
           </button>
         </form>
 
@@ -106,8 +82,6 @@ import { AuthService } from '../../../core/services/auth.service';
     .auth-wrap { display: flex; justify-content: center; padding: 60px 20px; }
     .auth-card { width: 100%; max-width: 420px; }
     .auth-link { margin-top: 20px; text-align: center; font-size: 13px; color: #868e96; }
-    .hint-text { font-size: 13px; color: #666; margin-bottom: 16px; }
-    .btn-submit { width: 100%; margin-top: 8px; }
   `],
 })
 export class LoginComponent implements OnInit {
@@ -117,7 +91,6 @@ export class LoginComponent implements OnInit {
   isNewPasswordRequired = signal(false);
   loading = signal(false);
   errorMessage = signal('');
-  fieldErrors = signal<Record<string, string>>({});
 
   private auth = inject(AuthService);
   private router = inject(Router);
@@ -129,35 +102,26 @@ export class LoginComponent implements OnInit {
     }
   }
 
-  clearFieldError(field: string): void {
-    const current = { ...this.fieldErrors() };
-    if (current[field]) {
-      delete current[field];
-      this.fieldErrors.set(current);
-    }
-  }
-
   private validate(): boolean {
-    const errors: Record<string, string> = {};
     const trimmedEmail = this.email.trim();
-
     if (!trimmedEmail) {
-      errors['email'] = 'メールアドレスを入力してください';
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(trimmedEmail)) {
-        errors['email'] = '有効なメールアドレスを入力してください';
-      }
+      this.errorMessage.set('メールアドレスを入力してください');
+      return false;
     }
-
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      this.errorMessage.set('有効なメールアドレスを入力してください');
+      return false;
+    }
     if (!this.password) {
-      errors['password'] = 'パスワードを入力してください';
-    } else if (this.password.length < 8) {
-      errors['password'] = 'パスワードは8文字以上で入力してください';
+      this.errorMessage.set('パスワードを入力してください');
+      return false;
     }
-
-    this.fieldErrors.set(errors);
-    return Object.keys(errors).length === 0;
+    if (this.password.length < 8) {
+      this.errorMessage.set('パスワードは8文字以上で入力してください');
+      return false;
+    }
+    return true;
   }
 
   private navigateByRole(): void {
@@ -191,16 +155,14 @@ export class LoginComponent implements OnInit {
 
   async onNewPasswordSubmit(): Promise<void> {
     this.errorMessage.set('');
-    const errors: Record<string, string> = {};
-
     if (!this.newPassword) {
-      errors['newPassword'] = '新しいパスワードを入力してください';
-    } else if (this.newPassword.length < 8) {
-      errors['newPassword'] = 'パスワードは8文字以上で入力してください';
+      this.errorMessage.set('新しいパスワードを入力してください');
+      return;
     }
-
-    this.fieldErrors.set(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (this.newPassword.length < 8) {
+      this.errorMessage.set('パスワードは8文字以上で入力してください');
+      return;
+    }
 
     this.loading.set(true);
 

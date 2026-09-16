@@ -20,20 +20,8 @@ import { environment } from '../../../../environments/environment';
         </a>
       </div>
 
-      <!-- 画面表示時ローディング（詳細スケルトンレイアウト） -->
-      <div *ngIf="loading() && !product()" class="detail-container skeleton-detail">
-        <div class="image-column">
-          <div class="card skeleton-img-box skeleton-shimmer"></div>
-        </div>
-        <div class="info-column card skeleton-info-card">
-          <div class="skeleton-bar sk-title skeleton-shimmer"></div>
-          <div class="skeleton-bar sk-price skeleton-shimmer"></div>
-          <div class="skeleton-bar sk-meta skeleton-shimmer"></div>
-          <div class="skeleton-bar sk-meta skeleton-shimmer"></div>
-          <div class="skeleton-bar sk-qty skeleton-shimmer"></div>
-          <div class="skeleton-bar sk-btn skeleton-shimmer"></div>
-        </div>
-      </div>
+      <!-- 画面表示時ローディング -->
+      <div *ngIf="loading() && !product()" class="loading">商品を読み込み中...</div>
 
       <!-- エラー表示 -->
       <div *ngIf="errorMessage()" class="error-state card">
@@ -125,17 +113,11 @@ import { environment } from '../../../../environments/environment';
               [disabled]="(product()?.stock ?? 0) === 0 || isAdding()"
               (click)="onAddToCart()"
             >
-              <span *ngIf="isAdding()" class="btn-loading-content">
-                <span class="spinner" aria-hidden="true"></span>
-                <span>カートに追加中...</span>
-              </span>
-              <ng-container *ngIf="!isAdding()">
-                <ng-container *ngIf="(product()?.stock ?? 0) > 0">
-                  🛒 カートに追加
-                </ng-container>
-                <ng-container *ngIf="(product()?.stock ?? 0) === 0">
-                  在庫なし
-                </ng-container>
+              <ng-container *ngIf="(product()?.stock ?? 0) > 0">
+                🛒 カートに追加
+              </ng-container>
+              <ng-container *ngIf="(product()?.stock ?? 0) === 0">
+                在庫なし
               </ng-container>
             </button>
           </div>
@@ -425,16 +407,6 @@ import { environment } from '../../../../environments/environment';
       text-align: center;
       padding: 40px;
     }
-
-    /* 詳細スケルトンローディング */
-    .skeleton-img-box { width: 100%; aspect-ratio: 1 / 1; min-height: 360px; }
-    .skeleton-info-card { display: flex; flex-direction: column; gap: 16px; padding: 24px; }
-    .skeleton-bar { border-radius: 4px; }
-    .sk-title { height: 28px; width: 75%; }
-    .sk-price { height: 36px; width: 35%; }
-    .sk-meta { height: 18px; width: 55%; }
-    .sk-qty { height: 36px; width: 45%; }
-    .sk-btn { height: 48px; width: 100%; margin-top: 10px; }
   `],
 })
 export class ProductDetailComponent implements OnInit {
