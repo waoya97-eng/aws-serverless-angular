@@ -4,6 +4,7 @@ import { NgIf, NgFor } from '@angular/common';
 import { CartService } from '../../../core/services/cart.service';
 import { ApiService } from '../../../core/services/api.service';
 import { OrderService } from '../../../core/services/order.service';
+import { ErrorService } from '../../../core/services/error.service';
 import { Order } from '../../../core/models/order.model';
 
 @Component({
@@ -27,6 +28,12 @@ import { Order } from '../../../core/models/order.model';
 
         <!-- 注文確認コンテンツ -->
         <div *ngIf="!cart.isEmpty()">
+          <!-- 409 在庫不足: フォーム上部（赤） -->
+          <div *ngIf="errorMessage()" class="error-box" role="alert">
+            <span class="error-icon">⚠️</span>
+            <span class="error-text">{{ errorMessage() }}</span>
+          </div>
+
           <!-- 注文内容リスト（読み取り専用・変更不可） -->
           <div class="order-items-list">
             <div *ngFor="let item of cart.items()" class="order-item-row">
@@ -48,12 +55,6 @@ import { Order } from '../../../core/models/order.model';
 
           <!-- 注意書き -->
           <p class="cancel-notice">※ 注文確定後のキャンセルはできません。</p>
-
-          <!-- エラーメッセージ（在庫不足 409 等のエラー時に赤表示） -->
-          <div *ngIf="errorMessage()" class="error-box" role="alert">
-            <span class="error-icon">⚠️</span>
-            <span class="error-text">{{ errorMessage() }}</span>
-          </div>
 
           <!-- アクションボタン -->
           <div class="actions-row">
@@ -293,6 +294,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private orderService = inject(OrderService);
   private router = inject(Router);
+  private errorService = inject(ErrorService);
 
   isSubmitting = signal(false);
   errorMessage = signal('');
@@ -348,14 +350,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         });
       },
       error: (err: any) => {
-        // 在庫不足（409）エラー時は仕様通り赤文字エラー表示
+        // 在庫不足（409）エラー: フォーム上部に赤文字で「在庫が不足しています。カートを確認してください」を表示
         if (err?.status === 409) {
           this.isSubmitting.set(false);
-          const detail = err.error?.message || err.error?.error || err.error;
+          const detail = err.error?.message || err.error?.error;
           this.errorMessage.set(
-            typeof detail === 'string' && detail.trim().length > 0
+            typeof detail === 'string' && detail.trim().length > 0 && detail !== 'Conflict'
               ? detail
-              : '在庫不足のため注文を確定できませんでした。'
+              : '在庫が不足しています。カートを確認してください'
           );
           return;
         }

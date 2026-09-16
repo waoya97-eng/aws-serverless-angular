@@ -23,10 +23,11 @@ import { environment } from '../../../../environments/environment';
       <!-- 画面表示時ローディング -->
       <div *ngIf="loading() && !product()" class="loading">商品を読み込み中...</div>
 
-      <!-- エラー表示 -->
+      <!-- 404 見つからない: ページ中央 -->
       <div *ngIf="errorMessage()" class="error-state card">
+        <div class="error-icon">🔍</div>
         <p class="error-message">{{ errorMessage() }}</p>
-        <button type="button" (click)="goBack()" class="btn btn-outline btn-sm" style="margin-top: 12px;">
+        <button type="button" (click)="goBack()" class="btn btn-primary btn-sm">
           商品一覧へ戻る
         </button>
       </div>
@@ -404,8 +405,24 @@ import { environment } from '../../../../environments/environment';
     }
 
     .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       text-align: center;
-      padding: 40px;
+      padding: 60px 24px;
+      margin: 40px auto;
+      max-width: 440px;
+    }
+    .error-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+    .error-message {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 16px;
     }
   `],
 })
@@ -469,7 +486,7 @@ export class ProductDetailComponent implements OnInit {
       error: err => {
         console.error('Failed to get product detail:', err);
         if (!this.product()) {
-          this.errorMessage.set('商品の取得に失敗しました。');
+          this.errorMessage.set('商品が見つかりませんでした');
         }
         this.loading.set(false);
       },
