@@ -47,7 +47,7 @@ import { Product } from '../../../core/models/product.model';
     .welcome { margin-bottom: 32px; color: #555; }
     .section { margin-bottom: 40px; }
     .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #333; }
-    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     .product-card { padding: 16px; text-decoration: none; color: inherit; display: block; transition: transform 0.15s, box-shadow 0.15s; }
     .product-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-decoration: none; }
     .category { font-size: 11px; color: #868e96; margin-bottom: 4px; }
@@ -57,6 +57,13 @@ import { Product } from '../../../core/models/product.model';
     .todo ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
     .todo li { font-size: 14px; color: #555; padding-left: 8px; }
     .todo li del { color: #868e96; }
+    /* タブレット(641〜1024px): 2列 / スマホ(〜640px): 1列 */
+    @media (max-width: 1024px) {
+      .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .product-grid { grid-template-columns: 1fr; gap: 12px; }
+    }
   `],
 })
 export class HomeComponent implements OnInit {

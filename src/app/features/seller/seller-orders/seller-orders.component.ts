@@ -75,8 +75,8 @@ import { Order } from '../../../core/models/order.model';
             </div>
 
             <!-- 展開時テーブル明細 -->
-            <div *ngIf="isExpanded(order.orderId)" class="expanded-table-wrapper">
-              <table class="details-table">
+            <div *ngIf="isExpanded(order.orderId)" class="expanded-table-wrapper table-scroll">
+              <table class="details-table table-to-card">
                 <thead>
                   <tr>
                     <th>商品名</th>
@@ -87,10 +87,10 @@ import { Order } from '../../../core/models/order.model';
                 </thead>
                 <tbody>
                   <tr *ngFor="let item of order.items">
-                    <td>{{ item.name }}</td>
-                    <td class="td-num">¥{{ item.price.toLocaleString() }}</td>
-                    <td class="td-num">{{ item.quantity }}</td>
-                    <td class="td-num">¥{{ (item.price * item.quantity).toLocaleString() }}</td>
+                    <td data-label="商品名">{{ item.name }}</td>
+                    <td class="td-num" data-label="単価">¥{{ item.price.toLocaleString() }}</td>
+                    <td class="td-num" data-label="数量">{{ item.quantity }}</td>
+                    <td class="td-num" data-label="小計">¥{{ (item.price * item.quantity).toLocaleString() }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -143,9 +143,12 @@ import { Order } from '../../../core/models/order.model';
     .details-table th { background: #f8f9fa; color: #495057; font-weight: 600; }
     .details-table td { border-bottom: 1px solid #f1f3f5; }
     .th-num, .td-num { text-align: right; }
-    @media (max-width: 600px) {
+    /* スマホ(〜640px) */
+    @media (max-width: 640px) {
+      .order-card { padding: 16px; }
       .order-header-row { flex-direction: column; align-items: flex-start; gap: 8px; }
       .meta-left, .meta-right { width: 100%; justify-content: space-between; }
+      .details-table td { padding: 4px 0; text-align: right; }
     }
   `],
 })

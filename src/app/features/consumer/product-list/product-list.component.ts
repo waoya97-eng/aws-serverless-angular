@@ -210,17 +210,24 @@ import { ProductCardComponent } from '../../../shared/components/product-card/pr
       box-shadow: 0 2px 6px rgba(66, 99, 235, 0.3);
     }
 
-    /* 商品グリッド */
+    /* 商品グリッド: PC(1025px〜) 3列 / タブレット(641〜1024px) 2列 / スマホ(〜640px) 1列 */
     .product-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 20px;
       margin-bottom: 36px;
     }
 
-    @media (max-width: 576px) {
+    @media (max-width: 1024px) {
       .product-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .product-grid {
+        grid-template-columns: 1fr;
         gap: 12px;
       }
     }
