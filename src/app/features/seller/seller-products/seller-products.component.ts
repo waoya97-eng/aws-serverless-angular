@@ -52,8 +52,8 @@ import { Product } from '../../../core/models/product.model';
 
       <!-- 商品テーブル: 画像 | 商品名 | カテゴリ | 価格 | 在庫 | 操作 -->
       <div *ngIf="!loading() && products().length > 0" class="card table-card">
-        <div class="table-responsive">
-          <table class="product-table">
+        <div class="table-scroll">
+          <table class="product-table table-to-card">
             <thead>
               <tr>
                 <th class="th-img">画像</th>
@@ -67,7 +67,7 @@ import { Product } from '../../../core/models/product.model';
             <tbody>
               <tr *ngFor="let prod of products()">
                 <!-- 画像 -->
-                <td class="td-img">
+                <td class="td-img" data-label="画像">
                   <div class="img-wrapper">
                     <img *ngIf="prod.imageUrl" [src]="prod.imageUrl" [alt]="prod.name" class="img-thumb" />
                     <span *ngIf="!prod.imageUrl" class="no-img-icon">📷</span>
@@ -75,22 +75,22 @@ import { Product } from '../../../core/models/product.model';
                 </td>
 
                 <!-- 商品名 -->
-                <td class="td-name">
+                <td class="td-name" data-label="商品名">
                   <span class="product-name">{{ prod.name }}</span>
                 </td>
 
                 <!-- カテゴリ -->
-                <td class="td-cat">
+                <td class="td-cat" data-label="カテゴリ">
                   <span class="category-text">{{ prod.category }}</span>
                 </td>
 
                 <!-- 価格 -->
-                <td class="td-price">
+                <td class="td-price" data-label="価格">
                   ¥{{ prod.price.toLocaleString() }}
                 </td>
 
                 <!-- 在庫 -->
-                <td class="td-stock">
+                <td class="td-stock" data-label="在庫">
                   <span [class.out-of-stock]="prod.stock === 0">
                     {{ prod.stock }}
                   </span>
@@ -207,17 +207,14 @@ import { Product } from '../../../core/models/product.model';
     .btn-new-product { display: inline-flex; align-items: center; padding: 10px 18px; font-size: 14px; font-weight: 600; }
     .alert { padding: 12px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
     .alert-success { background: #e6fcf5; border: 1px solid #b2f2bb; color: #0ca678; }
-    .alert-error { background: #fff5f5; border: 1px solid #ffc9c9; color: #e03131; }
     .close-btn { background: none; border: none; font-size: 14px; cursor: pointer; color: inherit; padding: 0 4px; }
     .loading-state { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 60px 16px; color: #6c757d; font-size: 15px; }
     .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #dee2e6; border-top-color: #4263eb; border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
     .empty-state { text-align: center; padding: 60px 24px; }
     .empty-icon { font-size: 48px; line-height: 1; margin-bottom: 16px; }
     .empty-title { font-size: 18px; font-weight: 700; color: #343a40; margin-bottom: 8px; }
     .empty-desc { font-size: 14px; color: #868e96; margin-bottom: 20px; }
     .table-card { background: white; border-radius: 8px; border: 1px solid #eaeaea; padding: 0; overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04); }
-    .table-responsive { width: 100%; overflow-x: auto; }
     .product-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
     .product-table thead { background: #f8f9fa; border-bottom: 1px solid #e9ecef; }
     .product-table th { padding: 14px 16px; font-size: 13px; font-weight: 600; color: #495057; white-space: nowrap; }
@@ -243,12 +240,19 @@ import { Product } from '../../../core/models/product.model';
     .td-actions { text-align: center; }
     .action-buttons { display: inline-flex; align-items: center; gap: 8px; }
     .btn-edit, .btn-delete { padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; }
+    /* スマホ(〜640px): 共通 .table-to-card の上書き分のみ */
+    @media (max-width: 640px) {
+      .table-card { background: none; border: none; box-shadow: none; overflow: visible; }
+      .product-table tbody tr, .product-table tbody tr:last-child { border: 1px solid #eaeaea; }
+      .product-table td { padding: 8px 0; text-align: right; }
+      .action-buttons { display: flex; flex: 1; }
+      .btn-edit, .btn-delete { flex: 1; }
+    }
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.45); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
     .modal-card { background: white; border-radius: 8px; width: 100%; max-width: 460px; padding: 24px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .modal-title { font-size: 18px; font-weight: 700; color: #212529; margin: 0; }
     .modal-close-btn { background: none; border: none; font-size: 18px; color: #868e96; cursor: pointer; padding: 4px; line-height: 1; }
-    .form-group { margin-bottom: 16px; }
     .form-label { display: block; font-size: 13px; font-weight: 600; color: #495057; margin-bottom: 6px; }
     .required { color: #e03131; }
     .form-control { width: 100%; padding: 9px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; box-sizing: border-box; }

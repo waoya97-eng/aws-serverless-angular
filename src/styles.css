@@ -271,3 +271,83 @@ input, select, textarea {
   animation: shimmer 1.5s infinite;
 }
 
+
+/* ─── レスポンシブ対応 ───────────────────────────────────────────────
+   ブレークポイント
+     スマホ     : 〜640px        カード1列 / テーブル → カード形式
+     タブレット : 641px〜1024px  カード2列 / テーブル → 横スクロール
+     PC         : 1025px〜       カード3列 / 通常テーブル表示
+   使い方
+     <div class="table-scroll">
+       <table class="table-to-card">… <td data-label="列名">…</td> …</table>
+     </div>
+   ─────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-scroll > table {
+    min-width: 640px;
+  }
+}
+
+@media (max-width: 640px) {
+  .table-scroll {
+    overflow-x: visible;
+  }
+
+  .table-scroll > table {
+    min-width: 0;
+  }
+
+  .table-to-card thead {
+    display: none;
+  }
+
+  .table-to-card,
+  .table-to-card tbody,
+  .table-to-card tr,
+  .table-to-card td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-to-card tr {
+    background: white;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .table-to-card tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .table-to-card td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    text-align: right;
+    border-bottom: none;
+  }
+
+  .table-to-card td::before {
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 600;
+    color: #868e96;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* data-label のないセル（操作ボタン等）はラベルを出さない */
+  .table-to-card td:not([data-label])::before {
+    content: none;
+  }
+}
